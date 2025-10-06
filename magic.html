@@ -1,0 +1,90 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Your Secure Login Link</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            text-align: center;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #eeeeee;
+        }
+        .logo {
+            max-width: 150px;
+            height: auto;
+        }
+        .content {
+            padding: 20px 0;
+        }
+        .button {
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: #6f42c1;
+            color: #ffffff !important;
+            text-decoration: none;
+            border-radius: 4px;
+            font-weight: bold;
+            margin: 15px 0;
+        }
+        .code {
+            font-family: monospace;
+            font-size: 24px;
+            letter-spacing: 2px;
+            background-color: #f8f9fa;
+            padding: 10px 15px;
+            border-radius: 4px;
+            display: inline-block;
+            margin: 10px 0;
+        }
+        .footer {
+            font-size: 12px;
+            color: #999999;
+            text-align: center;
+            padding-top: 20px;
+            border-top: 1px solid #eeeeee;
+        }
+    </style>
+</head>
+<body>
+<div class="header">
+    <!-- Replace with your company logo -->
+    <img src="https://example.com/logo.png" alt="Company Logo" class="logo">
+</div>
+
+<div class="content">
+    <h2>Your Secure Login</h2>
+    <p>Hello,</p>
+    <p>We received a request to sign in to your account. Here's your magic link and verification code:</p>
+
+    <div style="margin: 20px 0;">
+        <a href="{{.URL}}?email={{.Email}}&lc={{.Code}}" class="button">Click to Sign In</a>
+        <p style="margin-top: 5px; font-size: 14px;">(This link expires in 15 minutes)</p>
+    </div>
+
+    <p>Or use this verification code:</p>
+    <div class="code">{{.Code}}</div>
+    <p style="font-size: 14px;">(Code expires in 15 minutes)</p>
+
+    <p>If you didn't request this, please ignore this email or <a href="mailto:support@example.com">contact support</a> if you have concerns.</p>
+</div>
+
+<div class="footer">
+    <p>© 2023 Your Company Name. All rights reserved.</p>
+    <p>For security reasons, never share your magic link or code with anyone.</p>
+    <p>
+        <a href="https://example.com/privacy">Privacy Policy</a> |
+        <a href="https://example.com/terms">Terms of Service</a>
+    </p>
+</div>
+</body>
+</html>

@@ -1,0 +1,92 @@
+### Account Creation
+POST http://localhost:8081/api/accounts
+Content-Type: application/json
+X-Bulwark-Api-Key: {{API_KEY}}
+
+{
+  "email": "{{TEST_EMAIL}}",
+  "password": "{{TEST_PASSWORD}}"
+}
+
+### Account Verification Resend
+POST http://localhost:8081/api/accounts/resend
+Content-Type: application/json
+X-Bulwark-Api-Key: {{API_KEY}}
+
+{
+  "email": "{{TEST_EMAIL}}"
+}
+
+### Account Verification
+POST http://localhost:8081/api/accounts/verify
+Content-Type: application/json
+X-Bulwark-Api-Key: {{API_KEY}}
+
+{
+  "email": "{{TEST_EMAIL}}",
+  "token": "{{VERIFICATION_TOKEN}}"
+}
+
+### Authentication
+POST http://localhost:8081/api/authenticate
+Content-Type: application/json
+X-Bulwark-Api-Key: {{API_KEY}}
+
+{
+  "email": "{{TEST_EMAIL}}",
+  "password": "{{TEST_PASSWORD}}"
+}
+
+### Authentication Acknowledgment
+POST http://localhost:8081/api/authenticate/ack
+Content-Type: application/json
+X-Bulwark-Api-Key: {{API_KEY}}
+
+{
+  "email": "{{TEST_EMAIL}}",
+  "clientId": "{{CLIENT_ID}}",
+  "accessToken": "{{ACCESS_TOKEN}}",
+  "refreshToken": "{{REFRESH_TOKEN}}"
+}
+
+### Token Validation
+POST http://localhost:8081/api/authenticate/validate
+Content-Type: application/json
+X-Bulwark-Api-Key: {{API_KEY}}
+
+{
+  "token": "{{ACCESS_TOKEN}}"
+}
+
+### Token Refresh
+POST http://localhost:8081/api/authenticate/renew
+Content-Type: application/json
+X-Bulwark-Api-Key: {{API_KEY}}
+
+{
+  "token": "{{ACCESS_TOKEN}}",
+  "refreshToken": "{{REFRESH_TOKEN}}"
+}
+
+### Domain Verification Generation
+POST http://localhost:8081/api/domain/verify
+Content-Type: application/json
+X-Bulwark-Api-Key: {{API_KEY}}
+
+{
+  "domain": "{{TEST_DOMAIN}}"
+}
+
+### Domain Verification Check
+POST http://localhost:8081/api/domain/check
+Content-Type: application/json
+X-Bulwark-Api-Key: {{API_KEY}}
+
+{
+  "domain": "{{TEST_DOMAIN}}"
+}
+
+### Account Deletion (Admin)
+DELETE http://localhost:8081/api/accounts/{{TEST_EMAIL}}
+Content-Type: application/json
+X-Bulwark-Api-Key: {{API_KEY}}

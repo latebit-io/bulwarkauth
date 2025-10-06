@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{.Domain}} - Password Reset Request</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            text-align: center;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #eeeeee;
+        }
+        .logo {
+            max-width: 150px;
+            height: auto;
+        }
+        .content {
+            padding: 20px 0;
+        }
+        .button {
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: #007BFF;
+            color: #ffffff !important;
+            text-decoration: none;
+            border-radius: 4px;
+            font-weight: bold;
+            margin: 15px 0;
+        }
+        .footer {
+            font-size: 12px;
+            color: #999999;
+            text-align: center;
+            padding-top: 20px;
+            border-top: 1px solid #eeeeee;
+        }
+    </style>
+</head>
+<body>
+<div class="header">
+    <!-- Replace with your company logo -->
+    <img src="https://example.com/logo.png" alt="Company Logo" class="logo">
+</div>
+
+<div class="content">
+    <h2>Password Reset Request</h2>
+    <p>Hello,</p>
+    <p>We received a request to reset your password for your account. If you didn't make this request, you can safely ignore this email.</p>
+
+    <p>To reset your password, click the button below:</p>
+
+    <a href="{{.URL}}?email={{.Email}}&ft={{.Token}}" class="button">Reset Password</a>
+
+    <p>This link will expire in 24 hours for security reasons.</p>
+
+    <p>If the button above doesn't work, copy and paste this link into your browser:</p>
+    <p><small>{{.URL}}?email={{.Email}}&ft={{.Token}}</small></p>
+</div>
+
+<div class="footer">
+    <p>© 2025 Your Company Name. All rights reserved.</p>
+    <p>If you have any questions, please contact us at <a href="mailto:support@example.com">support@example.com</a></p>
+    <p>
+        <a href="https://example.com/privacy">Privacy Policy</a> |
+        <a href="https://example.com/terms">Terms of Service</a>
+    </p>
+</div>
+</body>
+</html>
