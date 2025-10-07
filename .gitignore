@@ -26,3 +26,4 @@ go.work.sum
 .env
 .idea/
 .DS_Store
+accounts.http

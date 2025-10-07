@@ -18,6 +18,7 @@ import (
 	"github.com/latebit-io/bulwarkauth/api/health"
 	"github.com/latebit-io/bulwarkauth/internal/accounts"
 	"github.com/latebit-io/bulwarkauth/internal/authentication"
+	"github.com/latebit-io/bulwarkauth/internal/authentication/social"
 	"github.com/latebit-io/bulwarkauth/internal/domain"
 	"github.com/latebit-io/bulwarkauth/internal/email"
 	"github.com/latebit-io/bulwarkauth/internal/encryption"
@@ -106,6 +107,14 @@ func main() {
 	logonService := authentication.NewDefaultLogonService(logonRepo, accountsRepo, emailService, tokenizer, encrypt)
 	logonCodeHandlers := authenticationapi.NewLogonCodeHandlers(logonService)
 	authenticationapi.LogonRoutes(service, logonCodeHandlers)
+	google, err := social.NewGoogleValidator(config.GoogleClientId)
+	if err != nil {
+		panic(err)
+	}
+	socialService := social.NewDefaultSocialService(accountsRepo, accountsService, encrypt, tokenizer)
+	socialService.AddValidator(google)
+	socialHandlers := authenticationapi.NewSocialHandlers(socialService)
+	authenticationapi.SocialRoutes(service, socialHandlers)
 
 	if config.DomainVerify {
 		domainRepo := domain.NewDefaultDomainRepository(mongodb)
