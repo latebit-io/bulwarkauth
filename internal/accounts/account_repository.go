@@ -210,7 +210,7 @@ func (a MongodbAccountRepository) PasswordMatches(ctx context.Context, email, pa
 
 func (a MongodbAccountRepository) LinkSocial(ctx context.Context, email string, provider SocialProvider) error {
 	collection := a.db.Collection(accountCollection)
-	result, err := collection.UpdateOne(ctx, bson.D{{Key: "email", Value: email}}, bson.D{{Key: "$push", Value: bson.D{{Key: "socialProvider", Value: provider}}}})
+	result, err := collection.UpdateOne(ctx, bson.D{{Key: "email", Value: email}}, bson.D{{Key: "$push", Value: bson.D{{Key: "socialProviders", Value: provider}}}})
 	if err != nil {
 		return err
 	}

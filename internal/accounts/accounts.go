@@ -48,8 +48,8 @@ type Account struct {
 }
 
 type SocialProvider struct {
-	Name     string `bson:"name"`
-	SocialId string `json:"socialId"`
+	Name     string `bson:"name" json:"name"`
+	SocialId string `bson:"socialId" json:"socialId"`
 }
 
 type DefaultAccountService struct {

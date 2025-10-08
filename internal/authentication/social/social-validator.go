@@ -72,7 +72,7 @@ func (gv *GoogleValidator) ValidateToken(ctx context.Context, ID string) (*Socia
 
 type SocialService interface {
 	AddValidator(validator Validator)
-	Authenticate(context context.Context, idToken, provider string) (authentication.Authenticated, error)
+	Authenticate(context context.Context, idToken, provider string) (*authentication.Authenticated, error)
 }
 
 type DefaultSocialService struct {
@@ -113,7 +113,7 @@ func (s *DefaultSocialService) Authenticate(ctx context.Context, idToken, provid
 	}
 
 	account, err := s.accountRepo.Read(ctx, social.Email)
-	var notFound *accounts.AccountNotFoundError
+	var notFound accounts.AccountNotFoundError
 	if errors.As(err, &notFound) {
 		randomPassword := uuid.New().String()
 		err = s.accountService.Create(ctx, social.Email, randomPassword)
