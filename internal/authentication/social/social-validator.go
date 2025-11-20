@@ -116,7 +116,7 @@ func (s *DefaultSocialService) Authenticate(ctx context.Context, idToken, provid
 	var notFound accounts.AccountNotFoundError
 	if errors.As(err, &notFound) {
 		randomPassword := uuid.New().String()
-		err = s.accountService.Create(ctx, social.Email, randomPassword)
+		err = s.accountService.Register(ctx, social.Email, randomPassword)
 		if err != nil {
 			return nil, err
 		}

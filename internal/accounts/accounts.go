@@ -11,7 +11,7 @@ import (
 
 // AccountService contract for all account related actions
 type AccountService interface {
-	Create(ctx context.Context, email string, password string) error
+	Register(ctx context.Context, email string, password string) error
 	Verify(ctx context.Context, email string, verificationCode string) error
 	Resend(ctx context.Context, email string) error
 	UpdateEmail(ctx context.Context, email string, accessToken string) error
@@ -130,8 +130,8 @@ func (a DefaultAccountService) Forgot(ctx context.Context, email string) error {
 	return nil
 }
 
-// Create will create a new user if the email is available
-func (a DefaultAccountService) Create(ctx context.Context, email string, password string) error {
+// Register will create a new user if the email is available
+func (a DefaultAccountService) Register(ctx context.Context, email string, password string) error {
 	err := a.accountRepository.Create(ctx, email, password)
 	if err != nil {
 		return err

@@ -57,8 +57,8 @@ func NewAccountHandler(service accounts.AccountService) AccountHandler {
 	return AccountHandler{service}
 }
 
-// Create handles the creation of a new account based on the provided email and password in the request payload.
-func (ah AccountHandler) Create(c echo.Context) error {
+// Register handles the creation of a new account based on the provided email and password in the request payload.
+func (ah AccountHandler) Register(c echo.Context) error {
 	newAccountRequest := new(NewAccountRequest)
 	err := c.Bind(newAccountRequest)
 	if err != nil {
@@ -67,7 +67,7 @@ func (ah AccountHandler) Create(c echo.Context) error {
 	}
 
 	ctx := c.Request().Context()
-	err = ah.accounts.Create(ctx, newAccountRequest.Email, newAccountRequest.Password)
+	err = ah.accounts.Register(ctx, newAccountRequest.Email, newAccountRequest.Password)
 	if err != nil {
 		var accountDuplicateError accounts.AccountDuplicateError
 		duplicate := errors.As(err, &accountDuplicateError)
