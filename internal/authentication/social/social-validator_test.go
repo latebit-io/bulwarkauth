@@ -123,7 +123,7 @@ func TestGoogleValidator_WithRealToken_FullFlow(t *testing.T) {
 	t.Logf("Validated token for email: %s", social.Email)
 
 	// Create and verify account with the email from the token
-	err = accountService.Create(context.Background(), social.Email, "test-password")
+	err = accountService.Register(context.Background(), social.Email, "test-password")
 	if err != nil {
 		t.Fatal(err)
 	}

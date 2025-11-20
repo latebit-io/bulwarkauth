@@ -71,7 +71,7 @@ func (a MongodbAccountRepository) Create(ctx context.Context, email, password st
 	}
 
 	collection := a.db.Collection(accountCollection)
-	uuid, err := uuid.NewUUID()
+	verificationToken, err := uuid.NewUUID()
 	if err != nil {
 		return err
 	}
@@ -82,10 +82,11 @@ func (a MongodbAccountRepository) Create(ctx context.Context, email, password st
 	}
 	_, err = collection.InsertOne(ctx,
 		bson.D{
+			{Key: "id", Value: uuid.New()},
 			{Key: "email", Value: email},
 			{Key: "password", Value: hashed},
 			{Key: "isVerified", Value: false},
-			{Key: "verificationToken", Value: uuid.String()},
+			{Key: "verificationToken", Value: verificationToken.String()},
 			{Key: "isEnabled", Value: false},
 			{Key: "isDeleted", Value: false},
 			{Key: "created", Value: time.Now()},

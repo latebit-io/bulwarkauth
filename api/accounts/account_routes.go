@@ -3,7 +3,7 @@ package accounts
 import "github.com/labstack/echo/v4"
 
 func AccountRoutes(e *echo.Echo, handler AccountHandler) {
-	e.POST("/api/accounts", handler.Create)
+	e.POST("/api/accounts", handler.Register)
 	e.POST("/api/accounts/verify", handler.Verify)
 	e.POST("api/accounts/resend", handler.Resend)
 	e.POST("/api/accounts/forgot", handler.Forgot)

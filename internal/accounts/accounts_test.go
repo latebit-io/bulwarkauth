@@ -16,7 +16,7 @@ import (
 
 //go:generate mockery --name=EmailService
 
-func TestDefaultAccountService_Create(t *testing.T) {
+func TestDefaultAccountService_Register(t *testing.T) {
 	tests := []struct {
 		name        string
 		email       string
@@ -61,7 +61,7 @@ func TestDefaultAccountService_Create(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := accountService.Create(context.TODO(), tt.email, tt.password)
+			err := accountService.Register(context.TODO(), tt.email, tt.password)
 			assert.Equal(t, tt.expectedErr, err)
 		})
 	}
@@ -112,7 +112,7 @@ func TestDefaultAccountService_Verification(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := accountService.Create(context.TODO(), tt.email, tt.password)
+			err := accountService.Register(context.TODO(), tt.email, tt.password)
 			if err != nil {
 				t.Fatal(err)
 			}
