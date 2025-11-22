@@ -82,7 +82,7 @@ func (a MongodbAccountRepository) Create(ctx context.Context, email, password st
 	}
 	_, err = collection.InsertOne(ctx,
 		bson.D{
-			{Key: "id", Value: uuid.New()},
+			{Key: "id", Value: uuid.New().String()},
 			{Key: "email", Value: email},
 			{Key: "password", Value: hashed},
 			{Key: "isVerified", Value: false},
