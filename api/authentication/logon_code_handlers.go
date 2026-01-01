@@ -1,6 +1,7 @@
 package authentication
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/labstack/echo/v4"
@@ -12,6 +13,19 @@ type LogonAuthRequest struct {
 	Email    string `json:"email"`
 	Code     string `json:"code"`
 	ClientID string `json:"clientId"`
+}
+
+func (l LogonAuthRequest) Validate() error {
+	if l.Email == "" {
+		return errors.New("email required")
+	}
+	if l.Code == "" {
+		return errors.New("code required")
+	}
+	if l.ClientID == "" {
+		return errors.New("client id required")
+	}
+	return nil
 }
 
 type LogonRequest struct {
@@ -33,6 +47,11 @@ func (h *LogonCodeHandlers) Authenticate(c echo.Context) error {
 	err := c.Bind(newLogonRequest)
 
 	if err != nil {
+		httpError := problem.NewBadRequest(err)
+		return echo.NewHTTPError(httpError.Status, httpError)
+	}
+
+	if err := newLogonRequest.Validate(); err != nil {
 		httpError := problem.NewBadRequest(err)
 		return echo.NewHTTPError(httpError.Status, httpError)
 	}

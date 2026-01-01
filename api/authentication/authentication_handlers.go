@@ -1,6 +1,7 @@
 package authentication
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/labstack/echo/v4"
@@ -12,6 +13,22 @@ type AuthenticationRequest struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
 	ClientID string `json:"clientId"`
+}
+
+func (a AuthenticationRequest) Validate() error {
+	if a.Email == "" {
+		return errors.New("email required")
+	}
+
+	if a.Password == "" {
+		return errors.New("password required")
+	}
+
+	if a.ClientID == "" {
+		return errors.New("clientID required")
+	}
+
+	return nil
 }
 
 type RenewRequest struct {
@@ -45,7 +62,12 @@ func NewAuthenticationHandler(service authentication.AuthenticationService) Auth
 func (ah AuthenticationHandler) Authenticate(c echo.Context) error {
 	newAuthRequest := new(AuthenticationRequest)
 	err := c.Bind(newAuthRequest)
+	if err != nil {
+		httpError := problem.NewBadRequest(err)
+		return echo.NewHTTPError(httpError.Status, httpError)
+	}
 
+	err = newAuthRequest.Validate()
 	if err != nil {
 		httpError := problem.NewBadRequest(err)
 		return echo.NewHTTPError(httpError.Status, httpError)
@@ -118,13 +140,7 @@ func (ah AuthenticationHandler) Revoke(c echo.Context) error {
 		return echo.NewHTTPError(httpError.Status, httpError)
 	}
 
-	_, err := ah.authentication.ValidateAccessToken(c.Request().Context(), newRevokeRequest.AccessToken)
-	if err != nil {
-		httpError := problem.NewBadRequest(err)
-		return echo.NewHTTPError(httpError.Status, httpError)
-	}
-
-	err = ah.authentication.Revoke(c.Request().Context(), newRevokeRequest.AccessToken)
+	err := ah.authentication.Revoke(c.Request().Context(), newRevokeRequest.AccessToken)
 	if err != nil {
 		httpError := problem.NewBadRequest(err)
 		return echo.NewHTTPError(httpError.Status, httpError)

@@ -52,7 +52,7 @@ func NewDefaultLogonService(logonRepo LogonCodeRepository, accountsRepository Ac
 	}
 }
 
-func (s *DefaultLogonCodeService) Authenticate(ctx context.Context, email, code, clientID string) (*Authenticated, error) {
+func (s *DefaultLogonCodeService) Authenticate(ctx context.Context, email, clientID, code string) (*Authenticated, error) {
 	compareCode, err := s.logonCodeRepository.Read(ctx, email)
 	if err != nil {
 		return nil, err
