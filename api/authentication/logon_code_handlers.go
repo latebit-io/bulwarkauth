@@ -9,8 +9,9 @@ import (
 )
 
 type LogonAuthRequest struct {
-	Email string `json:"email"`
-	Code  string `json:"code"`
+	Email    string `json:"email"`
+	Code     string `json:"code"`
+	ClientID string `json:"clientId"`
 }
 
 type LogonRequest struct {
@@ -35,7 +36,9 @@ func (h *LogonCodeHandlers) Authenticate(c echo.Context) error {
 		httpError := problem.NewBadRequest(err)
 		return echo.NewHTTPError(httpError.Status, httpError)
 	}
-	authenticated, err := h.logonService.Authenticate(c.Request().Context(), newLogonRequest.Email, newLogonRequest.Code)
+
+	authenticated, err := h.logonService.Authenticate(c.Request().Context(), newLogonRequest.Email, newLogonRequest.ClientID,
+		newLogonRequest.Code)
 	if err != nil {
 		httpError := problem.NewBadRequest(err)
 		return echo.NewHTTPError(httpError.Status, httpError)

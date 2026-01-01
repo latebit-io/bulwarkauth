@@ -19,7 +19,7 @@ const (
 )
 
 type LogonCodeService interface {
-	Authenticate(ctx context.Context, email, code string) (*Authenticated, error)
+	Authenticate(ctx context.Context, email, clientID, code string) (*Authenticated, error)
 	Request(ctx context.Context, email string) error
 }
 
@@ -42,7 +42,7 @@ type DefaultLogonCodeService struct {
 }
 
 func NewDefaultLogonService(logonRepo LogonCodeRepository, accountsRepository AccountRepository,
-	emailService email.EmailService, tokens tokens.Tokenizer, encrypt Encryption) *DefaultLogonCodeService {
+	emailService email.EmailService, tokens tokens.Tokenizer, encrypt Encryption) LogonCodeService {
 	return &DefaultLogonCodeService{
 		logonCodeRepository: logonRepo,
 		accountsRepository:  accountsRepository,
@@ -52,7 +52,7 @@ func NewDefaultLogonService(logonRepo LogonCodeRepository, accountsRepository Ac
 	}
 }
 
-func (s *DefaultLogonCodeService) Authenticate(ctx context.Context, email, code string) (*Authenticated, error) {
+func (s *DefaultLogonCodeService) Authenticate(ctx context.Context, email, code, clientID string) (*Authenticated, error) {
 	compareCode, err := s.logonCodeRepository.Read(ctx, email)
 	if err != nil {
 		return nil, err
@@ -69,11 +69,11 @@ func (s *DefaultLogonCodeService) Authenticate(ctx context.Context, email, code 
 			return nil, err
 		}
 
-		accessToken, err := s.tokens.CreateAccessToken(ctx, email, account.Roles)
+		accessToken, err := s.tokens.CreateAccessToken(ctx, email, clientID, account.Roles)
 		if err != nil {
 			return nil, err
 		}
-		refreshToken, err := s.tokens.CreateRefreshToken(ctx, email)
+		refreshToken, err := s.tokens.CreateRefreshToken(ctx, email, clientID)
 		if err != nil {
 			return nil, err
 		}

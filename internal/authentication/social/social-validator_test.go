@@ -70,6 +70,8 @@ func TestGoogleValidator_WithRealToken_FullFlow(t *testing.T) {
 		t.Skip("Skipping integration test: set GOOGLE_TEST_CLIENT_ID and GOOGLE_TEST_ID_TOKEN to run")
 	}
 
+	deviceID := "iPhone13_latebit.io"
+
 	// Setup MongoDB
 	mongodb := utils.NewMongoTestUtil()
 	mongoServer, err := mongodb.CreateServer()
@@ -143,7 +145,7 @@ func TestGoogleValidator_WithRealToken_FullFlow(t *testing.T) {
 	socialService.AddValidator(googleValidator)
 
 	// Authenticate with the real Google ID token
-	authenticated, err := socialService.Authenticate(context.Background(), idToken, "google")
+	authenticated, err := socialService.Authenticate(context.Background(), idToken, deviceID, "google")
 
 	// Assertions
 	assert.NoError(t, err, "Authentication should succeed")

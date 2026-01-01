@@ -3,6 +3,7 @@ module github.com/latebit-io/bulwarkauth
 go 1.24.0
 
 require (
+	github.com/coreos/go-oidc/v3 v3.16.0
 	github.com/golang-jwt/jwt/v5 v5.2.1
 	github.com/google/uuid v1.6.0
 	github.com/joho/godotenv v1.5.1
@@ -15,7 +16,6 @@ require (
 
 require (
 	github.com/acobaugh/osrelease v0.1.0 // indirect
-	github.com/coreos/go-oidc/v3 v3.16.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/go-jose/go-jose/v4 v4.1.3 // indirect
 	github.com/golang/snappy v1.0.0 // indirect

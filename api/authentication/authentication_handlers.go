@@ -11,6 +11,7 @@ import (
 type AuthenticationRequest struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
+	ClientID string `json:"clientId"`
 }
 
 type RenewRequest struct {
@@ -19,8 +20,6 @@ type RenewRequest struct {
 }
 
 type AcknowledgeRequest struct {
-	Email        string `json:"email"`
-	ClientId     string `json:"clientId"`
 	AccessToken  string `json:"accessToken"`
 	RefreshToken string `json:"refreshToken"`
 }
@@ -32,9 +31,7 @@ type RevokeRequest struct {
 }
 
 type ValidateAccessTokenRequest struct {
-	Email    string `json:"email"`
-	ClientId string `json:"clientId"`
-	Token    string `json:"token"`
+	Token string `json:"token"`
 }
 
 type AuthenticationHandler struct {
@@ -54,7 +51,8 @@ func (ah AuthenticationHandler) Authenticate(c echo.Context) error {
 		return echo.NewHTTPError(httpError.Status, httpError)
 	}
 
-	authenticated, err := ah.authentication.Authenticate(c.Request().Context(), newAuthRequest.Email, newAuthRequest.Password)
+	authenticated, err := ah.authentication.Authenticate(c.Request().Context(), newAuthRequest.Email, newAuthRequest.ClientID,
+		newAuthRequest.Password)
 	if err != nil {
 		httpError := problem.NewBadRequest(err)
 		return echo.NewHTTPError(httpError.Status, httpError)
@@ -71,13 +69,13 @@ func (ah AuthenticationHandler) Acknowledge(c echo.Context) error {
 		return echo.NewHTTPError(httpError.Status, httpError)
 	}
 
-	_, err = ah.authentication.ValidateAccessToken(c.Request().Context(), newAckRequest.AccessToken, newAckRequest.Email)
+	_, err = ah.authentication.ValidateAccessToken(c.Request().Context(), newAckRequest.AccessToken)
 	if err != nil {
 		httpError := problem.NewBadRequest(err)
 		return echo.NewHTTPError(httpError.Status, httpError)
 	}
 
-	_, err = ah.authentication.ValidateRefreshToken(c.Request().Context(), newAckRequest.RefreshToken, newAckRequest.Email)
+	_, err = ah.authentication.ValidateRefreshToken(c.Request().Context(), newAckRequest.RefreshToken)
 	if err != nil {
 		httpError := problem.NewBadRequest(err)
 		return echo.NewHTTPError(httpError.Status, httpError)
@@ -86,7 +84,7 @@ func (ah AuthenticationHandler) Acknowledge(c echo.Context) error {
 	err = ah.authentication.Acknowledge(c.Request().Context(), authentication.Authenticated{
 		AccessToken:  newAckRequest.AccessToken,
 		RefreshToken: newAckRequest.RefreshToken,
-	}, newAckRequest.Email, newAckRequest.ClientId)
+	})
 
 	if err != nil {
 		httpError := problem.NewBadRequest(err)
@@ -104,7 +102,7 @@ func (ah AuthenticationHandler) Renew(c echo.Context) error {
 		return echo.NewHTTPError(httpError.Status, httpError)
 	}
 
-	authenticated, err := ah.authentication.Renew(c.Request().Context(), newRenewRequest.RefreshToken, newRenewRequest.Email)
+	authenticated, err := ah.authentication.Renew(c.Request().Context(), newRenewRequest.RefreshToken)
 	if err != nil {
 		httpError := problem.NewBadRequest(err)
 		return echo.NewHTTPError(httpError.Status, httpError)
@@ -120,13 +118,13 @@ func (ah AuthenticationHandler) Revoke(c echo.Context) error {
 		return echo.NewHTTPError(httpError.Status, httpError)
 	}
 
-	_, err := ah.authentication.ValidateAccessToken(c.Request().Context(), newRevokeRequest.AccessToken, newRevokeRequest.Email)
+	_, err := ah.authentication.ValidateAccessToken(c.Request().Context(), newRevokeRequest.AccessToken)
 	if err != nil {
 		httpError := problem.NewBadRequest(err)
 		return echo.NewHTTPError(httpError.Status, httpError)
 	}
 
-	err = ah.authentication.Revoke(c.Request().Context(), newRevokeRequest.ClientId, newRevokeRequest.Email, newRevokeRequest.AccessToken)
+	err = ah.authentication.Revoke(c.Request().Context(), newRevokeRequest.AccessToken)
 	if err != nil {
 		httpError := problem.NewBadRequest(err)
 		return echo.NewHTTPError(httpError.Status, httpError)
@@ -142,7 +140,7 @@ func (ah AuthenticationHandler) ValidateAccessToken(c echo.Context) error {
 		return echo.NewHTTPError(httpError.Status, httpError)
 	}
 
-	claims, err := ah.authentication.ValidateAccessToken(c.Request().Context(), validateAccessTokenRequest.Token, validateAccessTokenRequest.Email)
+	claims, err := ah.authentication.ValidateAccessToken(c.Request().Context(), validateAccessTokenRequest.Token)
 	if err != nil {
 		httpError := problem.NewBadRequest(err)
 		return echo.NewHTTPError(httpError.Status, httpError)
