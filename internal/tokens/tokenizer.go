@@ -14,10 +14,10 @@ import (
 )
 
 type Tokenizer interface {
-	CreateAccessToken(ctx context.Context, email string, rbac []string) (string, error)
-	CreateRefreshToken(ctx context.Context, email string) (string, error)
-	ValidateRefreshToken(ctx context.Context, email, token string) (*RefreshTokenClaims, error)
-	ValidateAccessToken(ctx context.Context, email, tokenString string) (*AccessTokenClaims, error)
+	CreateAccessToken(ctx context.Context, email string, clientID string, rbac []string) (string, error)
+	CreateRefreshToken(ctx context.Context, email string, clientID string) (string, error)
+	ValidateRefreshToken(ctx context.Context, token string) (*RefreshTokenClaims, error)
+	ValidateAccessToken(ctx context.Context, token string) (*AccessTokenClaims, error)
 }
 
 type DefaultTokenizer struct {
@@ -32,15 +32,17 @@ type DefaultTokenizer struct {
 }
 
 type AccessTokenClaims struct {
-	Roles []string `json:"roles"`
+	ClientID string   `json:"clientId"`
+	Roles    []string `json:"roles"`
 	jwt.RegisteredClaims
 }
 
 type RefreshTokenClaims struct {
+	ClientID string `json:"clientId"`
 	jwt.RegisteredClaims
 }
 
-func NewDefaultTokenizer(name, issuer, audience string, refreshTokenExpInSec int, accessTokenExpInSec int, service SigningKeyService) *DefaultTokenizer {
+func NewDefaultTokenizer(name, issuer, audience string, refreshTokenExpInSec int, accessTokenExpInSec int, service SigningKeyService) Tokenizer {
 	keys, err := service.GetAllKeys(context.Background())
 	keyMap := make(map[string]SigningKey)
 	for _, k := range keys {
@@ -61,7 +63,7 @@ func NewDefaultTokenizer(name, issuer, audience string, refreshTokenExpInSec int
 	}
 }
 
-func (d DefaultTokenizer) CreateAccessToken(ctx context.Context, email string, rbac []string) (string, error) {
+func (d DefaultTokenizer) CreateAccessToken(ctx context.Context, email, clientID string, rbac []string) (string, error) {
 	key, err := d.signingKeyService.LatestKey(ctx)
 	if err != nil {
 		return "", err
@@ -70,7 +72,8 @@ func (d DefaultTokenizer) CreateAccessToken(ctx context.Context, email string, r
 	id := uuid.New()
 
 	claims := AccessTokenClaims{
-		Roles: rbac,
+		Roles:    rbac,
+		ClientID: clientID,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ID:        id.String(),
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Second * time.Duration(d.accessTokenExpInSec))),
@@ -98,7 +101,7 @@ func (d DefaultTokenizer) CreateAccessToken(ctx context.Context, email string, r
 	return token, nil
 }
 
-func (d DefaultTokenizer) CreateRefreshToken(ctx context.Context, email string) (string, error) {
+func (d DefaultTokenizer) CreateRefreshToken(ctx context.Context, email, clientID string) (string, error) {
 	key, err := d.signingKeyService.LatestKey(ctx)
 	if err != nil {
 		return "", err
@@ -107,6 +110,7 @@ func (d DefaultTokenizer) CreateRefreshToken(ctx context.Context, email string) 
 	id := uuid.New()
 
 	claims := RefreshTokenClaims{
+		ClientID: clientID,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ID:        id.String(),
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Second * time.Duration(d.refreshTokenExpInSec))),
@@ -134,19 +138,10 @@ func (d DefaultTokenizer) CreateRefreshToken(ctx context.Context, email string) 
 	return token, nil
 }
 
-func (d DefaultTokenizer) ValidateRefreshToken(ctx context.Context, email, tokenString string) (*RefreshTokenClaims, error) {
+func (d DefaultTokenizer) ValidateRefreshToken(ctx context.Context, tokenString string) (*RefreshTokenClaims, error) {
 	token, err := jwt.ParseWithClaims(tokenString, &RefreshTokenClaims{}, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
 			return nil, fmt.Errorf("signing method not supported")
-		}
-		tokenEmail, err := token.Claims.GetSubject()
-
-		if err != nil {
-			return nil, err
-		}
-
-		if tokenEmail != email {
-			return nil, fmt.Errorf("invalid token")
 		}
 
 		kid := fmt.Sprintf("%v", token.Header["kid"])
@@ -165,20 +160,10 @@ func (d DefaultTokenizer) ValidateRefreshToken(ctx context.Context, email, token
 	}
 }
 
-func (d DefaultTokenizer) ValidateAccessToken(ctx context.Context, email, tokenString string) (*AccessTokenClaims, error) {
+func (d DefaultTokenizer) ValidateAccessToken(ctx context.Context, tokenString string) (*AccessTokenClaims, error) {
 	token, err := jwt.ParseWithClaims(tokenString, &AccessTokenClaims{}, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
 			return nil, fmt.Errorf("signing method not supported")
-		}
-
-		tokenEmail, err := token.Claims.GetSubject()
-
-		if err != nil {
-			return nil, err
-		}
-
-		if tokenEmail != email {
-			return nil, fmt.Errorf("invalid token")
 		}
 
 		kid := fmt.Sprintf("%v", token.Header["kid"])

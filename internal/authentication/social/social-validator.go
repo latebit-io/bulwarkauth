@@ -72,7 +72,7 @@ func (gv *GoogleValidator) ValidateToken(ctx context.Context, ID string) (*Socia
 
 type SocialService interface {
 	AddValidator(validator Validator)
-	Authenticate(context context.Context, idToken, provider string) (*authentication.Authenticated, error)
+	Authenticate(context context.Context, idToken, clientID, provider string) (*authentication.Authenticated, error)
 }
 
 type DefaultSocialService struct {
@@ -84,7 +84,7 @@ type DefaultSocialService struct {
 }
 
 func NewDefaultSocialService(accountRepo accounts.AccountRepository,
-	accountService accounts.AccountService, encryption encryption.Encryption, token tokens.Tokenizer) *DefaultSocialService {
+	accountService accounts.AccountService, encryption encryption.Encryption, token tokens.Tokenizer) SocialService {
 	return &DefaultSocialService{
 		validators:     make(map[string]Validator),
 		accountRepo:    accountRepo,
@@ -98,7 +98,7 @@ func (s *DefaultSocialService) AddValidator(validator Validator) {
 	s.validators[validator.Name()] = validator
 }
 
-func (s *DefaultSocialService) Authenticate(ctx context.Context, idToken, provider string) (*authentication.Authenticated, error) {
+func (s *DefaultSocialService) Authenticate(ctx context.Context, idToken, clientID, provider string) (*authentication.Authenticated, error) {
 	validator, ok := s.validators[provider]
 	if !ok {
 		return nil, fmt.Errorf("no validator found for provider %s", provider)
@@ -134,11 +134,11 @@ func (s *DefaultSocialService) Authenticate(ctx context.Context, idToken, provid
 		return nil, err
 	}
 
-	accessToken, err := s.token.CreateAccessToken(ctx, account.Email, account.Roles)
+	accessToken, err := s.token.CreateAccessToken(ctx, account.Email, clientID, account.Roles)
 	if err != nil {
 		return nil, err
 	}
-	refreshToken, err := s.token.CreateRefreshToken(ctx, account.Email)
+	refreshToken, err := s.token.CreateRefreshToken(ctx, account.Email, clientID)
 	if err != nil {
 		return nil, err
 	}

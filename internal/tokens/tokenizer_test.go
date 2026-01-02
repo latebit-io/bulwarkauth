@@ -43,12 +43,13 @@ func TestDefaultTokenizer_CreateAccessToken(t *testing.T) {
 	}
 
 	tokenizer := NewDefaultTokenizer("test", "test", "test", 3600, 9600, signingService)
-	a, err := tokenizer.CreateAccessToken(context.TODO(), "test@latebit.io", []string{"test:read-write"})
+	deviceID := "iPhone13_latebit.io"
+	a, err := tokenizer.CreateAccessToken(context.TODO(), "test@latebit.io", deviceID, []string{"role1"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	assert.Equal(t, 3, len(strings.Split(a, ".")))
-	valid, err := tokenizer.ValidateAccessToken(context.TODO(), "test@latebit.io", a)
+	valid, err := tokenizer.ValidateAccessToken(context.TODO(), a)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -87,14 +88,15 @@ func TestDefaultTokenizer_RefreshAccessToken(t *testing.T) {
 	}
 
 	tokenizer := NewDefaultTokenizer("test", "test", "test", 3600, 9600, signingService)
-	r, err := tokenizer.CreateRefreshToken(context.TODO(), "test@latebit.io")
+	deviceID := "iPhone13_latebit.io"
+	r, err := tokenizer.CreateRefreshToken(context.TODO(), "test@latebit.io", deviceID)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	assert.Equal(t, 3, len(strings.Split(r, ".")))
 
-	valid, err := tokenizer.ValidateRefreshToken(context.TODO(), "test@latebit.io", r)
+	valid, err := tokenizer.ValidateRefreshToken(context.TODO(), r)
 
 	if err != nil {
 		t.Fatal(err)

@@ -2,6 +2,7 @@ package authentication
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/latebit-io/bulwarkauth/internal/accounts"
@@ -10,12 +11,12 @@ import (
 
 // AuthenticationService defines the interface for authentication services.
 type AuthenticationService interface {
-	Authenticate(ctx context.Context, email string, password string) (*Authenticated, error)
-	Acknowledge(ctx context.Context, Authenticate Authenticated, email, clientId string) error
-	ValidateAccessToken(ctx context.Context, accessToken, email string) (*AccessTokenClaims, error)
-	ValidateRefreshToken(ctx context.Context, refreshToken, email string) (*RefreshTokenClaims, error)
-	Renew(ctx context.Context, refreshToken, clientId string) (*Authenticated, error)
-	Revoke(ctx context.Context, clientId, email string, accessToken string) error
+	Authenticate(ctx context.Context, email, clientID, password string) (*Authenticated, error)
+	Acknowledge(ctx context.Context, Authenticate Authenticated) error
+	ValidateAccessToken(ctx context.Context, accessToken string) (*AccessTokenClaims, error)
+	ValidateRefreshToken(ctx context.Context, refreshToken string) (*RefreshTokenClaims, error)
+	Renew(ctx context.Context, refreshToken string) (*Authenticated, error)
+	Revoke(ctx context.Context, accessToken string) error
 }
 
 type AccountRepository interface {
@@ -24,10 +25,10 @@ type AccountRepository interface {
 }
 
 type Tokenizer interface {
-	CreateAccessToken(ctx context.Context, email string, rbac []string) (string, error)
-	CreateRefreshToken(ctx context.Context, email string) (string, error)
-	ValidateRefreshToken(ctx context.Context, email, tokenString string) (*tokens.RefreshTokenClaims, error)
-	ValidateAccessToken(ctx context.Context, email, tokenString string) (*tokens.AccessTokenClaims, error)
+	CreateAccessToken(ctx context.Context, email, clientID string, rbac []string) (string, error)
+	CreateRefreshToken(ctx context.Context, email, clientID string) (string, error)
+	ValidateRefreshToken(ctx context.Context, tokenString string) (*tokens.RefreshTokenClaims, error)
+	ValidateAccessToken(ctx context.Context, tokenString string) (*tokens.AccessTokenClaims, error)
 }
 
 // Authenticated represents the authenticated user's tokens.
@@ -46,6 +47,7 @@ type AccessTokenClaims struct {
 	NotBefore time.Time `json:"notBefore"`
 	IssuedAt  time.Time `json:"issuedAt"`
 	ID        string    `json:"Id,omitempty"`
+	ClientID  string    `json:"clientId,omitempty"`
 }
 
 // RefreshTokenClaims represents the claims in a refresh token.
@@ -57,6 +59,7 @@ type RefreshTokenClaims struct {
 	NotBefore time.Time `json:"notBefore"`
 	IssuedAt  time.Time `json:"issuedAt"`
 	ID        string    `json:"Id,omitempty"`
+	ClientID  string    `json:"clientId,omitempty"`
 }
 
 // DefaultAuthenticationService is the default implementation of AuthenticationService.
@@ -67,7 +70,7 @@ type DefaultAuthenticationService struct {
 }
 
 // NewDefaultAuthenticationService creates a new DefaultAuthenticationService.
-func NewDefaultAuthenticationService(accounts AccountRepository, tokens TokenRepository, tokenizer Tokenizer) *DefaultAuthenticationService {
+func NewDefaultAuthenticationService(accounts AccountRepository, tokens TokenRepository, tokenizer Tokenizer) AuthenticationService {
 	return &DefaultAuthenticationService{
 		accounts:        accounts,
 		tokens:          tokenizer,
@@ -76,7 +79,7 @@ func NewDefaultAuthenticationService(accounts AccountRepository, tokens TokenRep
 }
 
 // Authenticate authenticates a user by their email and password.
-func (a *DefaultAuthenticationService) Authenticate(ctx context.Context, email string, password string) (*Authenticated, error) {
+func (a *DefaultAuthenticationService) Authenticate(ctx context.Context, email, clientID, password string) (*Authenticated, error) {
 	account, err := a.accounts.Read(ctx, email)
 	if err != nil {
 		return nil, err
@@ -98,11 +101,11 @@ func (a *DefaultAuthenticationService) Authenticate(ctx context.Context, email s
 		}
 	}
 
-	accessToken, err := a.tokens.CreateAccessToken(ctx, email, nil)
+	accessToken, err := a.tokens.CreateAccessToken(ctx, email, clientID, account.Roles)
 	if err != nil {
 		return nil, err
 	}
-	refreshToken, err := a.tokens.CreateRefreshToken(ctx, email)
+	refreshToken, err := a.tokens.CreateRefreshToken(ctx, email, clientID)
 	if err != nil {
 		return nil, err
 	}
@@ -113,9 +116,20 @@ func (a *DefaultAuthenticationService) Authenticate(ctx context.Context, email s
 }
 
 // Acknowledge acknowledges the authentication by storing the tokens.
-func (a *DefaultAuthenticationService) Acknowledge(ctx context.Context, authenticated Authenticated, email, clientId string) error {
-	err := a.tokenRepository.Create(ctx, email, clientId, authenticated.AccessToken, authenticated.RefreshToken)
-	//TODO: on ack have the option to set cookie for SPA
+func (a *DefaultAuthenticationService) Acknowledge(ctx context.Context, authenticated Authenticated) error {
+	accessClaims, err := a.tokens.ValidateAccessToken(ctx, authenticated.AccessToken)
+	if err != nil {
+		return err
+	}
+	refreshClaims, err := a.tokens.ValidateRefreshToken(ctx, authenticated.RefreshToken)
+	if err != nil {
+		return err
+	}
+	if accessClaims.ClientID != refreshClaims.ClientID {
+		return errors.New("client IDs do not match")
+	}
+	err = a.tokenRepository.Create(ctx, accessClaims.Subject, accessClaims.ClientID,
+		authenticated.AccessToken, authenticated.RefreshToken)
 	if err != nil {
 		return err
 	}
@@ -123,8 +137,8 @@ func (a *DefaultAuthenticationService) Acknowledge(ctx context.Context, authenti
 }
 
 // ValidateAccessToken validates an access token.
-func (a *DefaultAuthenticationService) ValidateAccessToken(ctx context.Context, accessToken string, email string) (*AccessTokenClaims, error) {
-	token, err := a.tokens.ValidateAccessToken(ctx, email, accessToken)
+func (a *DefaultAuthenticationService) ValidateAccessToken(ctx context.Context, accessToken string) (*AccessTokenClaims, error) {
+	token, err := a.tokens.ValidateAccessToken(ctx, accessToken)
 	if err != nil {
 		return nil, err
 	}
@@ -136,12 +150,13 @@ func (a *DefaultAuthenticationService) ValidateAccessToken(ctx context.Context, 
 		NotBefore: token.NotBefore.Time,
 		IssuedAt:  token.IssuedAt.Time,
 		ID:        token.ID,
+		ClientID:  token.ClientID,
 	}, nil
 }
 
 // ValidateRefreshToken validates a refresh token.
-func (a *DefaultAuthenticationService) ValidateRefreshToken(ctx context.Context, refreshToken string, email string) (*RefreshTokenClaims, error) {
-	token, err := a.tokens.ValidateRefreshToken(ctx, email, refreshToken)
+func (a *DefaultAuthenticationService) ValidateRefreshToken(ctx context.Context, refreshToken string) (*RefreshTokenClaims, error) {
+	token, err := a.tokens.ValidateRefreshToken(ctx, refreshToken)
 	if err != nil {
 		return nil, err
 	}
@@ -152,12 +167,13 @@ func (a *DefaultAuthenticationService) ValidateRefreshToken(ctx context.Context,
 		NotBefore: token.NotBefore.Time,
 		IssuedAt:  token.IssuedAt.Time,
 		ID:        token.ID,
+		ClientID:  token.ClientID,
 	}, nil
 }
 
 // Renew renews the authentication by generating new tokens.
-func (a *DefaultAuthenticationService) Renew(ctx context.Context, refreshToken, email string) (*Authenticated, error) {
-	token, err := a.tokens.ValidateRefreshToken(ctx, email, refreshToken)
+func (a *DefaultAuthenticationService) Renew(ctx context.Context, refreshToken string) (*Authenticated, error) {
+	token, err := a.tokens.ValidateRefreshToken(ctx, refreshToken)
 	if err != nil {
 		return nil, err
 	}
@@ -167,12 +183,12 @@ func (a *DefaultAuthenticationService) Renew(ctx context.Context, refreshToken, 
 		return nil, err
 	}
 
-	accessToken, err := a.tokens.CreateAccessToken(ctx, token.Subject, account.Roles)
+	accessToken, err := a.tokens.CreateAccessToken(ctx, token.Subject, token.ClientID, account.Roles)
 	if err != nil {
 		return nil, err
 	}
 
-	refreshToken, err = a.tokens.CreateRefreshToken(ctx, token.Subject)
+	refreshToken, err = a.tokens.CreateRefreshToken(ctx, token.Subject, token.ClientID)
 	if err != nil {
 		return nil, err
 	}
@@ -184,8 +200,13 @@ func (a *DefaultAuthenticationService) Renew(ctx context.Context, refreshToken, 
 }
 
 // Revoke revokes the authentication by deleting the tokens.
-func (a *DefaultAuthenticationService) Revoke(ctx context.Context, clientId, email string, accessToken string) error {
-	err := a.tokenRepository.Delete(ctx, email, clientId)
+func (a *DefaultAuthenticationService) Revoke(ctx context.Context, accessToken string) error {
+	accessClaims, err := a.tokens.ValidateAccessToken(ctx, accessToken)
+	if err != nil {
+		return err
+	}
+
+	err = a.tokenRepository.Delete(ctx, accessClaims.Subject, accessClaims.ClientID)
 	if err != nil {
 		return err
 	}

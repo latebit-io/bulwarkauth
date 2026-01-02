@@ -32,7 +32,7 @@ type TxManager interface {
 }
 
 type Tokenizer interface {
-	ValidateAccessToken(ctx context.Context, email, tokenString string) (*tokens.AccessTokenClaims, error)
+	ValidateAccessToken(ctx context.Context, tokenString string) (*tokens.AccessTokenClaims, error)
 }
 
 type Account struct {
@@ -161,7 +161,7 @@ func (a DefaultAccountService) Verify(ctx context.Context, email string, verific
 
 // UpdateEmail updates an accounts email must supply a valid accessToken
 func (a DefaultAccountService) UpdateEmail(ctx context.Context, email string, accessToken string) error {
-	token, err := a.tokenizer.ValidateAccessToken(ctx, email, accessToken)
+	token, err := a.tokenizer.ValidateAccessToken(ctx, accessToken)
 	if err != nil {
 		return err
 	}
@@ -179,7 +179,7 @@ func (a DefaultAccountService) UpdateEmail(ctx context.Context, email string, ac
 }
 
 func (a DefaultAccountService) UpdatePassword(ctx context.Context, email, newPassword, accessToken string) error {
-	_, err := a.tokenizer.ValidateAccessToken(ctx, email, accessToken)
+	_, err := a.tokenizer.ValidateAccessToken(ctx, accessToken)
 	if err != nil {
 		return err
 	}
@@ -192,7 +192,7 @@ func (a DefaultAccountService) UpdatePassword(ctx context.Context, email, newPas
 }
 
 func (a DefaultAccountService) Delete(ctx context.Context, email string, accessToken string) error {
-	_, err := a.tokenizer.ValidateAccessToken(ctx, email, accessToken)
+	_, err := a.tokenizer.ValidateAccessToken(ctx, accessToken)
 	if err != nil {
 		return err
 	}

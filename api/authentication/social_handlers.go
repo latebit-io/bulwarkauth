@@ -1,6 +1,7 @@
 package authentication
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/labstack/echo/v4"
@@ -10,7 +11,21 @@ import (
 
 type SocialAuthRequest struct {
 	ID       string `json:"id" query:"id"`
+	ClientID string `json:"clientId" query:"clientId"`
 	Provider string `json:"provider" query:"provider"`
+}
+
+func (s SocialAuthRequest) Validate() error {
+	if s.ID == "" {
+		return errors.New("id required")
+	}
+	if s.ClientID == "" {
+		return errors.New("client id required")
+	}
+	if s.Provider == "" {
+		return errors.New("provider required")
+	}
+	return nil
 }
 
 type SocialHandlers struct {
@@ -30,7 +45,12 @@ func (handler *SocialHandlers) Authenticate(c echo.Context) error {
 		return echo.NewHTTPError(httpError.Status, httpError)
 	}
 
-	authenticated, err := handler.socialService.Authenticate(c.Request().Context(), socialRequest.ID,
+	if err := socialRequest.Validate(); err != nil {
+		httpError := problem.NewBadRequest(err)
+		return echo.NewHTTPError(httpError.Status, httpError)
+	}
+
+	authenticated, err := handler.socialService.Authenticate(c.Request().Context(), socialRequest.ID, socialRequest.ClientID,
 		socialRequest.Provider)
 	if err != nil {
 		httpError := problem.NewBadRequest(err)
