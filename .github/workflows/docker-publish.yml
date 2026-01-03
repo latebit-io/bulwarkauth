@@ -29,11 +29,7 @@ jobs:
           check-latest: true
 
       - name: Run unit tests
-        run: go test -p 1 ./... -v
-        working-directory: .
-        env:
-          # Exclude integration tests
-          TEST_TAGS: unit
+        run: go test -p 1 $(go list ./... | grep -v /test/) -v
 
   # Integration tests job
   integration-test:
