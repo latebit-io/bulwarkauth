@@ -4,19 +4,19 @@ on:
   push:
     branches: [main]
     tags:
-      - 'v*'
+      - "v*"
   pull_request:
     branches: [main]
 
 permissions:
-  contents: write  # For creating releases
-  packages: write  # For pushing to GitHub Container Registry
-  issues: write    # For creating and updating issues
+  contents: write # For creating releases
+  packages: write # For pushing to GitHub Container Registry
+  issues: write # For creating and updating issues
 
 jobs:
-  # First job to run tests
+  # First job to run unit tests
   test:
-    name: Run Tests
+    name: Run Unit Tests
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -25,16 +25,108 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.24'
+          go-version: "1.24"
           check-latest: true
 
-      - name: Run tests
-        run: go test -p 1 ./...
+      - name: Run unit tests
+        run: go test -p 1 ./... -v
+        working-directory: .
+        env:
+          # Exclude integration tests
+          TEST_TAGS: unit
+
+  # Integration tests job
+  integration-test:
+    name: Run Integration Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+          check-latest: true
+
+      - name: Start MongoDB
+        run: |
+          docker run -d \
+            --name mongodb \
+            -p 27017:27017 \
+            mongo:7 \
+            mongod --replSet rs0
+
+          # Wait for MongoDB to be ready
+          timeout 30 bash -c 'until docker exec mongodb mongosh --eval "db.runCommand({ ping: 1 })" > /dev/null 2>&1; do sleep 1; done'
+
+          # Initialize replica set
+          docker exec mongodb mongosh --eval "rs.initiate({ _id: 'rs0', members: [{ _id: 0, host: 'localhost:27017' }] })"
+
+          # Wait for replica set to be ready
+          sleep 5
+
+      - name: Start MailHog
+        run: |
+          docker run -d \
+            --name mailhog \
+            -p 1025:1025 \
+            -p 8025:8025 \
+            mailhog/mailhog:latest
+
+      - name: Build bulwarkauth
+        run: go build -o bulwarkauth ./cmd/bulwarkauth
+
+      - name: Start bulwarkauth service
+        run: |
+          ./bulwarkauth &
+          echo $! > bulwarkauth.pid
+
+          # Wait for service to be ready
+          timeout 30 bash -c 'until curl -f http://localhost:8080/health > /dev/null 2>&1; do sleep 1; done'
+        env:
+          DB_CONNECTION: mongodb://localhost:27017/?connect=direct
+          DB_NAME_SEED: spont
+          DOMAIN: latebit.io
+          WEBSITE_NAME: latebit
+          EMAIL_FROM_ADDRESS: admin@lateflip.io
+          ENABLE_SMTP: true
+          EMAIL_SMTP_HOST: localhost
+          EMAIL_SMTP_PORT: 1025
+          EMAIL_SMTP_AUTH: false
+          EMAIL_SMTP_SECURE: false
+          VERIFICATION_URL: https://localhost:1221/verify
+          FORGOT_PASSWORD_URL: https://localhost:3000/reset/password
+          MAGIC_URL: https://localhost:1221/authenticate
+          MAGIC_CODE_EXPIRE_IN_MINUTES: 10
+          ACCESS_TOKEN_EXPIRE_IN_SECONDS: 3600
+          REFRESH_TOKEN_EXPIRE_IN_SECONDS: 9600
+          PORT: 8080
+          TEST_MODE: true
+          API_KEY_ENABLE: false
+          CORS_ENABLED: false
+
+      - name: Run integration tests
+        run: go test -v ./...
+        working-directory: test
+
+      - name: Stop bulwarkauth service
+        if: always()
+        run: |
+          if [ -f bulwarkauth.pid ]; then
+            kill $(cat bulwarkauth.pid) || true
+          fi
+
+      - name: Cleanup containers
+        if: always()
+        run: |
+          docker stop mongodb mailhog || true
+          docker rm mongodb mailhog || true
 
   # Second job to determine the next version
   semver:
     name: Calculate Semantic Version
-    needs: test
+    needs: [test, integration-test]
     runs-on: ubuntu-latest
     outputs:
       new_version: ${{ steps.semantic-version.outputs.version }}
@@ -113,7 +205,6 @@ jobs:
         run: |
           echo "tag_name=v${{ needs.semver.outputs.new_version }}" >> $GITHUB_OUTPUT
 
-
   # Second job to build and publish with GoReleaser
   release:
     name: Release with GoReleaser
@@ -129,7 +220,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.24'
+          go-version: "1.24"
           check-latest: true
 
       - name: Login to GitHub Container Registry
@@ -159,7 +250,7 @@ jobs:
           echo "github.event.ref: ${{ github.event.ref }}"
 
       - name: Run GoReleaser (release)
-#        if: startsWith(github.ref, 'refs/tags/v')
+        #        if: startsWith(github.ref, 'refs/tags/v')
         uses: goreleaser/goreleaser-action@v5
         with:
           distribution: goreleaser
@@ -168,7 +259,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GORELEASER_CURRENT_TAG: ${{ env.RELEASE_TAG }}
-
 #      - name: Run GoReleaser (snapshot)
 #        if: "!startsWith(github.ref, 'refs/tags/v')"
 #        uses: goreleaser/goreleaser-action@v5

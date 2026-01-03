@@ -18,15 +18,16 @@ services:
       - 1025:1025
       - 8025:8025
     container_name: mailhog_container
-  bukwarkauth:
+  bulwarkauth:
+    image: ghcr.io/latebit-io/bulwarkauth:latest
     build:
       dockerfile: Dockerfile
+    network_mode: "host"
     env_file:
       - .env
     depends_on:
-      - mongodb
-      - mailhog
-    ports:
-      - 8080:8080
+      mongodb:
+        condition: service_healthy # Wait for replica set init
+      mailhog:
+        condition: service_started
     container_name: bulwarkauth_container
-
