@@ -142,6 +142,10 @@ func (a *DefaultAuthenticationService) ValidateAccessToken(ctx context.Context, 
 	if err != nil {
 		return nil, err
 	}
+	_, err = a.tokenRepository.Read(ctx, token.Subject, token.ClientID)
+	if err != nil {
+		return nil, TokenNotAcknowledged{Value: err.Error()}
+	}
 	return &AccessTokenClaims{
 		Roles:     token.Roles,
 		Issuer:    token.Issuer,
@@ -160,6 +164,12 @@ func (a *DefaultAuthenticationService) ValidateRefreshToken(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
+
+	_, err = a.tokenRepository.Read(ctx, token.Subject, token.ClientID)
+	if err != nil {
+		return nil, TokenNotAcknowledged{Value: err.Error()}
+	}
+
 	return &RefreshTokenClaims{
 		Issuer:    token.Issuer,
 		Subject:   token.Subject,
