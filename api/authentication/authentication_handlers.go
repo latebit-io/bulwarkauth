@@ -91,18 +91,6 @@ func (ah AuthenticationHandler) Acknowledge(c echo.Context) error {
 		return echo.NewHTTPError(httpError.Status, httpError)
 	}
 
-	_, err = ah.authentication.ValidateAccessToken(c.Request().Context(), newAckRequest.AccessToken)
-	if err != nil {
-		httpError := problem.NewBadRequest(err)
-		return echo.NewHTTPError(httpError.Status, httpError)
-	}
-
-	_, err = ah.authentication.ValidateRefreshToken(c.Request().Context(), newAckRequest.RefreshToken)
-	if err != nil {
-		httpError := problem.NewBadRequest(err)
-		return echo.NewHTTPError(httpError.Status, httpError)
-	}
-
 	err = ah.authentication.Acknowledge(c.Request().Context(), authentication.Authenticated{
 		AccessToken:  newAckRequest.AccessToken,
 		RefreshToken: newAckRequest.RefreshToken,
