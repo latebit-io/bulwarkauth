@@ -14,12 +14,10 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 	accountsapi "github.com/latebit-io/bulwarkauth/api/accounts"
 	authenticationapi "github.com/latebit-io/bulwarkauth/api/authentication"
-	domainapi "github.com/latebit-io/bulwarkauth/api/domain"
 	"github.com/latebit-io/bulwarkauth/api/health"
 	"github.com/latebit-io/bulwarkauth/internal/accounts"
 	"github.com/latebit-io/bulwarkauth/internal/authentication"
 	"github.com/latebit-io/bulwarkauth/internal/authentication/social"
-	"github.com/latebit-io/bulwarkauth/internal/domain"
 	"github.com/latebit-io/bulwarkauth/internal/email"
 	"github.com/latebit-io/bulwarkauth/internal/encryption"
 	"github.com/latebit-io/bulwarkauth/internal/tokens"
@@ -117,24 +115,6 @@ func main() {
 	socialHandlers := authenticationapi.NewSocialHandlers(socialService)
 	authenticationapi.SocialRoutes(service, socialHandlers)
 
-	if config.DomainVerify {
-		domainRepo := domain.NewDefaultDomainRepository(mongodb)
-		domainService := domain.NewDefaultDomainService(domainRepo, config.CompanyID)
-		domains, err := domainService.GetAll(context.Background())
-		if err != nil {
-			panic(err)
-		}
-
-		for _, d := range domains {
-			err = domainService.Verify(context.Background(), d.Domain)
-			if err != nil {
-				panic(err)
-			}
-		}
-		domainHandlers := domainapi.NewDomainHandler(domainService)
-
-		domainapi.DomainRoutes(service, domainHandlers)
-	}
 	corsSetting(service, config, logger)
 	apiKeySetting(service, config, logger)
 

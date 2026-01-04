@@ -15,7 +15,6 @@ The codebase follows a clean architecture pattern with three main layers:
 1. **API Layer** (`api/`): HTTP handlers and routes using Echo framework
    - `api/accounts/`: Account management endpoints
    - `api/authentication/`: Authentication and logon code endpoints
-   - `api/domain/`: Domain verification endpoints
    - `api/health/`: Health check endpoints
    - `api/problem/`: RFC 7807 problem details for error responses
 
@@ -24,7 +23,6 @@ The codebase follows a clean architecture pattern with three main layers:
    - `internal/authentication/`: Authentication service, token repository, logon code (magic links)
    - `internal/tokens/`: JWT tokenizer, signing key service and repository
    - `internal/email/`: Email service with template support
-   - `internal/domain/`: Domain verification logic
    - `internal/encryption/`: Password encryption utilities
    - `internal/utils/`: Transaction manager and test utilities
 
@@ -61,10 +59,6 @@ The codebase follows a clean architecture pattern with three main layers:
 - Template-based emails (verification, forgot password, magic link)
 - SMTP configuration via environment variables
 - Test mode bypasses actual sending
-
-**Domain Verification** (`internal/domain/`):
-- DNS TXT record verification for domain ownership
-- Optional feature enabled via `DOMAIN_VERIFY=true`
 
 ## Development Commands
 

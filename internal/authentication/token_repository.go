@@ -2,7 +2,6 @@ package authentication
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -55,15 +54,9 @@ func (t *DefaultTokenRepository) Create(ctx context.Context, email, clientId, ac
 	}
 
 	opts := options.Update().SetUpsert(true)
-	result, err := collection.UpdateOne(context.TODO(), filter, update, opts)
+	_, err := collection.UpdateOne(context.TODO(), filter, update, opts)
 	if err != nil {
 		return err
-	}
-
-	if result.UpsertedCount > 0 {
-		fmt.Println("Inserted new token:", result.UpsertedID)
-	} else {
-		fmt.Println("Updated existing token")
 	}
 
 	return nil
