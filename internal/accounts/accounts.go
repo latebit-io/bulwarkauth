@@ -217,7 +217,7 @@ func (a DefaultAccountService) UpdatePassword(ctx context.Context, email, newPas
 	if err != nil {
 		return err
 	}
-	err = utils.ValidatePassword(email)
+	err = utils.ValidatePassword(newPassword)
 	if err != nil {
 		return err
 	}
