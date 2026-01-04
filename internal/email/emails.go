@@ -9,6 +9,7 @@ import (
 	"net/smtp"
 	"os"
 
+	"github.com/latebit-io/bulwarkauth/internal/utils"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
@@ -179,6 +180,11 @@ func (s *DefaultEmailService) magic(ctx context.Context) error {
 func (s *DefaultEmailService) SendVerificationEmail(ctx context.Context, email, verificationToken string) error {
 	subject := "Please verify account"
 
+	err := utils.ValidateEmail(email)
+	if err != nil {
+		return err
+	}
+
 	t, err := s.emailRepository.Read(ctx, "verification")
 
 	if err != nil {
@@ -193,6 +199,10 @@ func (s *DefaultEmailService) SendVerificationEmail(ctx context.Context, email, 
 	}
 	if s.options.TestMode {
 		subject = verificationToken
+	}
+	err = utils.ValidateEmail(s.fromAddress)
+	if err != nil {
+		return err
 	}
 	msg := []byte("From: " + s.fromAddress + "\r\n" +
 		"To: " + email + "\r\n" +

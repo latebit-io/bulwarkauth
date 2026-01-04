@@ -16,7 +16,6 @@ type AppConfig struct {
 	DbConnection                string
 	DbNameSeed                  string
 	Domain                      string
-	DomainVerify                bool
 	EmailAuth                   bool
 	EmailFromAddress            string
 	EmailSmtpHost               string
@@ -54,7 +53,6 @@ func NewAppConfig() (*AppConfig, error) {
 	config.MicrosoftTenantId = getEnv("MICROSOFT_TENANT_ID", "")
 	config.GithubAppName = getEnv("GITHUB_APP_NAME", "")
 	config.Domain = getEnv("DOMAIN", "")
-	config.DomainVerify = getEnv("DOMAIN_VERIFY", "false") == "true"
 	if config.Domain == "" {
 		return nil, errors.New("DOMAIN environment variable is required")
 	}
