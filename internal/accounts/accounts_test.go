@@ -49,7 +49,7 @@ func TestDefaultAccountService_Register(t *testing.T) {
 
 	db := client.Database("bulwark-test")
 	mongodbTxManager := utils.NewMongoTxManager(client)
-	accountRepo := NewMongodbAccountRepository(db, encryption.NewDefaultEncryption())
+	accountRepo := NewMongodbAccountRepository(db, encryption.NewDefaultEncryption(12))
 	forgotRepo := NewMongoDbForgotRepository(db)
 	signingRepo := tokens.NewDefaultSigningKeyRepository(db)
 	signingService := tokens.NewDefaultSigningKeyService(signingRepo)
@@ -100,7 +100,7 @@ func TestDefaultAccountService_Verification(t *testing.T) {
 
 	db := client.Database("bulwark-test")
 	mongodbTxManager := utils.NewMongoTxManager(client)
-	accountRepo := NewMongodbAccountRepository(db, encryption.NewDefaultEncryption())
+	accountRepo := NewMongodbAccountRepository(db, encryption.NewDefaultEncryption(12))
 	forgotRepo := NewMongoDbForgotRepository(db)
 	signingRepo := tokens.NewDefaultSigningKeyRepository(db)
 	signingService := tokens.NewDefaultSigningKeyService(signingRepo)

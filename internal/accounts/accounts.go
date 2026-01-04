@@ -179,9 +179,13 @@ func (a DefaultAccountService) UpdateEmail(ctx context.Context, email string, ac
 }
 
 func (a DefaultAccountService) UpdatePassword(ctx context.Context, email, newPassword, accessToken string) error {
-	_, err := a.tokenizer.ValidateAccessToken(ctx, accessToken)
+	claims, err := a.tokenizer.ValidateAccessToken(ctx, accessToken)
 	if err != nil {
 		return err
+	}
+
+	if claims.Subject != email {
+		return errors.New("token invalid")
 	}
 
 	if err = a.accountRepository.UpdatePassword(ctx, email, newPassword); err != nil {
@@ -192,11 +196,13 @@ func (a DefaultAccountService) UpdatePassword(ctx context.Context, email, newPas
 }
 
 func (a DefaultAccountService) Delete(ctx context.Context, email string, accessToken string) error {
-	_, err := a.tokenizer.ValidateAccessToken(ctx, accessToken)
+	claims, err := a.tokenizer.ValidateAccessToken(ctx, accessToken)
 	if err != nil {
 		return err
 	}
-
+	if claims.Subject != email {
+		return errors.New("token invalid")
+	}
 	err = a.accountRepository.Delete(ctx, email)
 	if err != nil {
 		return err

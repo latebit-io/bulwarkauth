@@ -27,6 +27,7 @@ import (
 	"github.com/latebit-io/bulwarkauth/internal/version"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"golang.org/x/time/rate"
 )
 
 func main() {
@@ -71,7 +72,7 @@ func main() {
 
 	mongodb := client.Database("bulwarkauth" + config.DbNameSeed)
 	mongodbTxManager := utils.NewMongoTxManager(client)
-	encrypt := encryption.NewDefaultEncryption()
+	encrypt := encryption.NewDefaultEncryption(config.PasswordEncryptionCost)
 	accountsRepo := accounts.NewMongodbAccountRepository(mongodb, encrypt)
 	forgotRepo := accounts.NewMongoDbForgotRepository(mongodb)
 	signingRepo := tokens.NewDefaultSigningKeyRepository(mongodb)
@@ -134,6 +135,8 @@ func main() {
 
 		domainapi.DomainRoutes(service, domainHandlers)
 	}
+	//TODO: This will need to have an option for distributed rate limiting across services instances
+	service.Use(middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(rate.Limit(config.RequestsPerSecond))))
 	corsSetting(service, config, logger)
 	apiKeySetting(service, config, logger)
 

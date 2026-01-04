@@ -27,3 +27,4 @@ go.work.sum
 .idea/
 .DS_Store
 accounts.http
+SECURITY_AUDIT.md
