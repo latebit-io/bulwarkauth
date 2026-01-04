@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/latebit-io/bulwarkauth/internal/tokens"
+	"github.com/latebit-io/bulwarkauth/internal/utils"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
@@ -33,6 +34,11 @@ type TxManager interface {
 
 type Tokenizer interface {
 	ValidateAccessToken(ctx context.Context, tokenString string) (*tokens.AccessTokenClaims, error)
+}
+
+type Verification struct {
+	Token string
+	Email string
 }
 
 type Account struct {
@@ -73,6 +79,10 @@ func NewDefaultAccountService(accountRepository AccountRepository, forgotReposit
 
 // Resend will send the verification email if the account has not yet been verified
 func (a DefaultAccountService) Resend(ctx context.Context, email string) error {
+	err := utils.ValidateEmail(email)
+	if err != nil {
+		return err
+	}
 	account, err := a.accountRepository.Read(ctx, email)
 	if err != nil {
 		return err
@@ -88,6 +98,14 @@ func (a DefaultAccountService) Resend(ctx context.Context, email string) error {
 
 // ForgotPassword will reset a users password if supplied with a valid token
 func (a DefaultAccountService) ForgotPassword(ctx context.Context, email, newPassword, forgotToken string) error {
+	err := utils.ValidateEmail(email)
+	if err != nil {
+		return err
+	}
+	err = utils.ValidatePassword(newPassword)
+	if err != nil {
+		return err
+	}
 	forgot, err := a.forgotRepository.Read(ctx, email)
 	if err != nil {
 		return err
@@ -112,7 +130,11 @@ func (a DefaultAccountService) ForgotPassword(ctx context.Context, email, newPas
 // Forgot will send a forgot email using the forgot template te the user with a link to reset their password
 // the service can be configured with a endpoint that will call the forgot password bulwark api
 func (a DefaultAccountService) Forgot(ctx context.Context, email string) error {
-	err := a.forgotRepository.Create(ctx, email)
+	err := utils.ValidateEmail(email)
+	if err != nil {
+		return err
+	}
+	err = a.forgotRepository.Create(ctx, email)
 	if err != nil {
 		return err
 	}
@@ -132,7 +154,15 @@ func (a DefaultAccountService) Forgot(ctx context.Context, email string) error {
 
 // Register will create a new user if the email is available
 func (a DefaultAccountService) Register(ctx context.Context, email string, password string) error {
-	err := a.accountRepository.Create(ctx, email, password)
+	err := utils.ValidateEmail(email)
+	if err != nil {
+		return err
+	}
+	err = utils.ValidatePassword(password)
+	if err != nil {
+		return err
+	}
+	err = a.accountRepository.Create(ctx, email, password)
 	if err != nil {
 		return err
 	}
@@ -161,6 +191,10 @@ func (a DefaultAccountService) Verify(ctx context.Context, email string, verific
 
 // UpdateEmail updates an accounts email must supply a valid accessToken
 func (a DefaultAccountService) UpdateEmail(ctx context.Context, email string, accessToken string) error {
+	err := utils.ValidateEmail(email)
+	if err != nil {
+		return err
+	}
 	token, err := a.tokenizer.ValidateAccessToken(ctx, accessToken)
 	if err != nil {
 		return err
@@ -179,6 +213,14 @@ func (a DefaultAccountService) UpdateEmail(ctx context.Context, email string, ac
 }
 
 func (a DefaultAccountService) UpdatePassword(ctx context.Context, email, newPassword, accessToken string) error {
+	err := utils.ValidateEmail(email)
+	if err != nil {
+		return err
+	}
+	err = utils.ValidatePassword(email)
+	if err != nil {
+		return err
+	}
 	claims, err := a.tokenizer.ValidateAccessToken(ctx, accessToken)
 	if err != nil {
 		return err
@@ -196,6 +238,10 @@ func (a DefaultAccountService) UpdatePassword(ctx context.Context, email, newPas
 }
 
 func (a DefaultAccountService) Delete(ctx context.Context, email string, accessToken string) error {
+	err := utils.ValidateEmail(email)
+	if err != nil {
+		return err
+	}
 	claims, err := a.tokenizer.ValidateAccessToken(ctx, accessToken)
 	if err != nil {
 		return err

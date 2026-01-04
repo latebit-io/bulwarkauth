@@ -24,8 +24,8 @@ func TestDefaultAccountService_Register(t *testing.T) {
 		expectedErr error
 	}{
 		{"Valid User", "test@latebit.io", "password", nil},
-		{"Empty email", "", "password", errors.New("email is required")},
-		{"Empty password", "test2@latebit.io", "", errors.New("password is required")},
+		{"Empty email", "", "password", errors.New("invalid email format")},
+		{"Empty password", "test2@latebit.io", "", errors.New("password must be at least 8 characters")},
 	}
 	mongodb := utils.NewMongoTestUtil()
 	mongoServer, err := mongodb.CreateServer()
@@ -75,7 +75,7 @@ func TestDefaultAccountService_Verification(t *testing.T) {
 		expectedErr error
 	}{
 		{"Valid User", "test@latebit.io", "password", nil},
-		//{"Non Valid User", "", "password", errors.New("email is required")},
+		//{"Non Valid User", "", "password", errors.New("invalid email format")},
 		//{"Empty password", "test2@latebit.io", "", errors.New("password is required")},
 	}
 	mongodb := utils.NewMongoTestUtil()

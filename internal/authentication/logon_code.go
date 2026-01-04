@@ -9,6 +9,7 @@ import (
 
 	"github.com/latebit-io/bulwarkauth/internal/email"
 	"github.com/latebit-io/bulwarkauth/internal/tokens"
+	"github.com/latebit-io/bulwarkauth/internal/utils"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -53,6 +54,16 @@ func NewDefaultLogonService(logonRepo LogonCodeRepository, accountsRepository Ac
 }
 
 func (s *DefaultLogonCodeService) Authenticate(ctx context.Context, email, clientID, code string) (*Authenticated, error) {
+	err := utils.ValidateEmail(email)
+	if err != nil {
+		return nil, err
+	}
+
+	err = utils.ValidateCode(code, codeSize)
+	if err != nil {
+		return nil, err
+	}
+
 	compareCode, err := s.logonCodeRepository.Read(ctx, email)
 	if err != nil {
 		return nil, err
