@@ -7,6 +7,7 @@ import (
 
 	"github.com/latebit-io/bulwarkauth/internal/accounts"
 	"github.com/latebit-io/bulwarkauth/internal/tokens"
+	"github.com/latebit-io/bulwarkauth/internal/utils"
 )
 
 // AuthenticationService defines the interface for authentication services.
@@ -80,6 +81,16 @@ func NewDefaultAuthenticationService(accounts AccountRepository, tokens TokenRep
 
 // Authenticate authenticates a user by their email and password.
 func (a *DefaultAuthenticationService) Authenticate(ctx context.Context, email, clientID, password string) (*Authenticated, error) {
+	err := utils.ValidateEmail(email)
+	if err != nil {
+		return nil, err
+	}
+
+	err = utils.ValidatePassword(password)
+	if err != nil {
+		return nil, err
+	}
+
 	account, err := a.accounts.Read(ctx, email)
 	if err != nil {
 		return nil, err

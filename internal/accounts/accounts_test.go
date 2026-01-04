@@ -24,8 +24,8 @@ func TestDefaultAccountService_Register(t *testing.T) {
 		expectedErr error
 	}{
 		{"Valid User", "test@latebit.io", "password", nil},
-		{"Empty email", "", "password", errors.New("email is required")},
-		{"Empty password", "test2@latebit.io", "", errors.New("password is required")},
+		{"Empty email", "", "password", errors.New("invalid email format")},
+		{"Empty password", "test2@latebit.io", "", errors.New("password must be at least 8 characters")},
 	}
 	mongodb := utils.NewMongoTestUtil()
 	mongoServer, err := mongodb.CreateServer()
@@ -75,7 +75,7 @@ func TestDefaultAccountService_Verification(t *testing.T) {
 		expectedErr error
 	}{
 		{"Valid User", "test@latebit.io", "password", nil},
-		//{"Non Valid User", "", "password", errors.New("email is required")},
+		//{"Non Valid User", "", "password", errors.New("invalid email format")},
 		//{"Empty password", "test2@latebit.io", "", errors.New("password is required")},
 	}
 	mongodb := utils.NewMongoTestUtil()
@@ -209,7 +209,7 @@ func TestDefaultAccountService_UpdatePassword_WithMismatchedToken(t *testing.T) 
 
 	// Test 2: Security vulnerability - user1 tries to update user2's password using user1's token
 	t.Run("User tries to update another user's password - should fail", func(t *testing.T) {
-		err := accountService.UpdatePassword(context.TODO(), user2Email, "hacked", user1Token)
+		err := accountService.UpdatePassword(context.TODO(), user2Email, "hacked1234", user1Token)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "token invalid")
 
