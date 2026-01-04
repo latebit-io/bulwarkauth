@@ -27,6 +27,7 @@ import (
 	"github.com/latebit-io/bulwarkauth/internal/version"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"golang.org/x/time/rate"
 )
 
 func main() {
@@ -68,10 +69,10 @@ func main() {
 			panic(err)
 		}
 	}()
-
+	ratelimiter := middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(rate.Limit(config.RequestsPerSecond)))
 	mongodb := client.Database("bulwarkauth" + config.DbNameSeed)
 	mongodbTxManager := utils.NewMongoTxManager(client)
-	encrypt := encryption.NewDefaultEncryption()
+	encrypt := encryption.NewDefaultEncryption(config.PasswordEncryptionCost)
 	accountsRepo := accounts.NewMongodbAccountRepository(mongodb, encrypt)
 	forgotRepo := accounts.NewMongoDbForgotRepository(mongodb)
 	signingRepo := tokens.NewDefaultSigningKeyRepository(mongodb)
@@ -98,15 +99,15 @@ func main() {
 	}
 	accountsService := accounts.NewDefaultAccountService(accountsRepo, forgotRepo, tokenizer, emailService, mongodbTxManager)
 	accountHandlers := accountsapi.NewAccountHandler(accountsService)
-	accountsapi.AccountRoutes(service, accountHandlers)
+	accountsapi.AccountRoutes(service, accountHandlers, ratelimiter)
 	tokenRepo := authentication.NewDefaultTokenRepository(mongodb)
 	authenticationService := authentication.NewDefaultAuthenticationService(accountsRepo, tokenRepo, tokenizer)
 	authenticationHandler := authenticationapi.NewAuthenticationHandler(authenticationService)
-	authenticationapi.AuthenticationRoutes(service, authenticationHandler)
+	authenticationapi.AuthenticationRoutes(service, authenticationHandler, ratelimiter)
 	logonRepo := authentication.NewDefaultLogonCodeRepository(mongodb)
 	logonService := authentication.NewDefaultLogonService(logonRepo, accountsRepo, emailService, tokenizer, encrypt)
 	logonCodeHandlers := authenticationapi.NewLogonCodeHandlers(logonService)
-	authenticationapi.LogonRoutes(service, logonCodeHandlers)
+	authenticationapi.LogonRoutes(service, logonCodeHandlers, ratelimiter)
 	google, err := social.NewGoogleValidator(config.GoogleClientId)
 	if err != nil {
 		panic(err)

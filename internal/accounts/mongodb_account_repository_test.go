@@ -46,7 +46,7 @@ func TestUserRepository_CreateAccount(t *testing.T) {
 
 	// Create a test database and collection
 	db := client.Database("bulwark")
-	accountsRepo := NewMongodbAccountRepository(db, encryption.NewDefaultEncryption())
+	accountsRepo := NewMongodbAccountRepository(db, encryption.NewDefaultEncryption(12))
 	for _, tt := range tests {
 
 		t.Run(tt.name, func(t *testing.T) {
@@ -89,7 +89,7 @@ func TestUserRepository_ReadAccount(t *testing.T) {
 
 	// Create a test database and collection
 	db := client.Database("bulwark")
-	accountsRepo := NewMongodbAccountRepository(db, encryption.NewDefaultEncryption())
+	accountsRepo := NewMongodbAccountRepository(db, encryption.NewDefaultEncryption(12))
 	for _, tt := range tests {
 
 		t.Run(tt.name, func(t *testing.T) {
@@ -137,7 +137,7 @@ func TestUserRepository_Delete(t *testing.T) {
 
 	// Create a test database and collection
 	db := client.Database("bulwark")
-	accountsRepo := NewMongodbAccountRepository(db, encryption.NewDefaultEncryption())
+	accountsRepo := NewMongodbAccountRepository(db, encryption.NewDefaultEncryption(12))
 	for _, tt := range tests {
 
 		t.Run(tt.name, func(t *testing.T) {
@@ -186,7 +186,7 @@ func TestUserRepository_UpdateEmail(t *testing.T) {
 
 	// Create a test database and collection
 	db := client.Database("bulwark")
-	accountsRepo := NewMongodbAccountRepository(db, encryption.NewDefaultEncryption())
+	accountsRepo := NewMongodbAccountRepository(db, encryption.NewDefaultEncryption(12))
 	for _, tt := range tests {
 
 		t.Run(tt.name, func(t *testing.T) {
@@ -239,7 +239,7 @@ func TestUserRepository_UpdatePassword(t *testing.T) {
 
 	// Create a test database and collection
 	db := client.Database("bulwark")
-	accountsRepo := NewMongodbAccountRepository(db, encryption.NewDefaultEncryption())
+	accountsRepo := NewMongodbAccountRepository(db, encryption.NewDefaultEncryption(12))
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := accountsRepo.Create(context.TODO(), tt.email, tt.password)

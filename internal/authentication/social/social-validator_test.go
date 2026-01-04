@@ -94,7 +94,7 @@ func TestGoogleValidator_WithRealToken_FullFlow(t *testing.T) {
 
 	db := mongoClient.Database("bulwark-test")
 	mongodbTxManager := utils.NewMongoTxManager(mongoClient)
-	encrypt := encryption.NewDefaultEncryption()
+	encrypt := encryption.NewDefaultEncryption(12)
 	accountRepo := accounts.NewMongodbAccountRepository(db, encrypt)
 	forgotRepo := accounts.NewMongoDbForgotRepository(db)
 	signingRepo := tokens.NewDefaultSigningKeyRepository(db)
