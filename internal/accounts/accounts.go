@@ -110,7 +110,7 @@ func (a DefaultAccountService) ForgotPassword(ctx context.Context, email, newPas
 	if err != nil {
 		return err
 	}
-	if forgot.Token != forgotToken {
+	if !utils.SafeCompare(forgot.Token, forgotToken) {
 		return errors.New("cannot change password")
 	}
 
@@ -180,7 +180,7 @@ func (a DefaultAccountService) Verify(ctx context.Context, email string, verific
 		return err
 	}
 
-	if account.VerificationToken != verificationCode {
+	if !utils.SafeCompare(account.VerificationToken, verificationCode) {
 		return VerificationError{
 			Value: "cannot verify account",
 		}

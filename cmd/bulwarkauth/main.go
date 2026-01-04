@@ -173,7 +173,7 @@ func apiKeySetting(service *echo.Echo, config *AppConfig, logger *slog.Logger) {
 	service.Use(middleware.KeyAuthWithConfig(middleware.KeyAuthConfig{
 		KeyLookup: "header:X-BULWARK-API-KEY",
 		Validator: func(key string, c echo.Context) (bool, error) {
-			return key == os.Getenv("API_KEY"), nil
+			return utils.SafeCompare(key, os.Getenv("API_KEY")), nil
 		},
 	}))
 	logger.Info("api key enabled")

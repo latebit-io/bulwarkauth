@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"crypto/subtle"
 	"errors"
 	"regexp"
 )
@@ -32,4 +33,9 @@ func ValidateCode(code string, size int) error {
 		return errors.New("invalid code")
 	}
 	return nil
+}
+
+// SafeCompare compares strings avoiding timing attacks
+func SafeCompare(string1, string2 string) bool {
+	return subtle.ConstantTimeCompare([]byte(string1), []byte(string2)) == 1
 }
