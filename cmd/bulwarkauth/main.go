@@ -69,7 +69,7 @@ func main() {
 			panic(err)
 		}
 	}()
-
+	ratelimiter := middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(rate.Limit(config.RequestsPerSecond)))
 	mongodb := client.Database("bulwarkauth" + config.DbNameSeed)
 	mongodbTxManager := utils.NewMongoTxManager(client)
 	encrypt := encryption.NewDefaultEncryption(config.PasswordEncryptionCost)
@@ -99,15 +99,15 @@ func main() {
 	}
 	accountsService := accounts.NewDefaultAccountService(accountsRepo, forgotRepo, tokenizer, emailService, mongodbTxManager)
 	accountHandlers := accountsapi.NewAccountHandler(accountsService)
-	accountsapi.AccountRoutes(service, accountHandlers)
+	accountsapi.AccountRoutes(service, accountHandlers, ratelimiter)
 	tokenRepo := authentication.NewDefaultTokenRepository(mongodb)
 	authenticationService := authentication.NewDefaultAuthenticationService(accountsRepo, tokenRepo, tokenizer)
 	authenticationHandler := authenticationapi.NewAuthenticationHandler(authenticationService)
-	authenticationapi.AuthenticationRoutes(service, authenticationHandler)
+	authenticationapi.AuthenticationRoutes(service, authenticationHandler, ratelimiter)
 	logonRepo := authentication.NewDefaultLogonCodeRepository(mongodb)
 	logonService := authentication.NewDefaultLogonService(logonRepo, accountsRepo, emailService, tokenizer, encrypt)
 	logonCodeHandlers := authenticationapi.NewLogonCodeHandlers(logonService)
-	authenticationapi.LogonRoutes(service, logonCodeHandlers)
+	authenticationapi.LogonRoutes(service, logonCodeHandlers, ratelimiter)
 	google, err := social.NewGoogleValidator(config.GoogleClientId)
 	if err != nil {
 		panic(err)
@@ -135,8 +135,6 @@ func main() {
 
 		domainapi.DomainRoutes(service, domainHandlers)
 	}
-	//TODO: This will need to have an option for distributed rate limiting across services instances
-	service.Use(middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(rate.Limit(config.RequestsPerSecond))))
 	corsSetting(service, config, logger)
 	apiKeySetting(service, config, logger)
 
