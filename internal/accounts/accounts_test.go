@@ -209,7 +209,7 @@ func TestDefaultAccountService_UpdatePassword_WithMismatchedToken(t *testing.T) 
 
 	// Test 2: Security vulnerability - user1 tries to update user2's password using user1's token
 	t.Run("User tries to update another user's password - should fail", func(t *testing.T) {
-		err := accountService.UpdatePassword(context.TODO(), user2Email, "hacked", user1Token)
+		err := accountService.UpdatePassword(context.TODO(), user2Email, "hacked1234", user1Token)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "token invalid")
 
