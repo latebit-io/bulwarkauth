@@ -65,17 +65,19 @@ type RefreshTokenClaims struct {
 
 // DefaultAuthenticationService is the default implementation of AuthenticationService.
 type DefaultAuthenticationService struct {
-	accounts        AccountRepository
-	tokens          Tokenizer
-	tokenRepository TokenRepository
+	accounts                AccountRepository
+	tokens                  Tokenizer
+	tokenRepository         TokenRepository
+	failedAttemptRepository FailedAttemptRepository
 }
 
 // NewDefaultAuthenticationService creates a new DefaultAuthenticationService.
-func NewDefaultAuthenticationService(accounts AccountRepository, tokens TokenRepository, tokenizer Tokenizer) AuthenticationService {
+func NewDefaultAuthenticationService(accounts AccountRepository, tokens TokenRepository, tokenizer Tokenizer, failedAttempts FailedAttemptRepository) AuthenticationService {
 	return &DefaultAuthenticationService{
-		accounts:        accounts,
-		tokens:          tokenizer,
-		tokenRepository: tokens,
+		accounts:                accounts,
+		tokens:                  tokenizer,
+		tokenRepository:         tokens,
+		failedAttemptRepository: failedAttempts,
 	}
 }
 
@@ -89,6 +91,19 @@ func (a *DefaultAuthenticationService) Authenticate(ctx context.Context, email, 
 	err = utils.ValidatePassword(password)
 	if err != nil {
 		return nil, err
+	}
+
+	// Check if account is locked due to failed attempts
+	attempt, err := a.failedAttemptRepository.Get(ctx, email)
+	if err != nil {
+		return nil, err
+	}
+
+	if attempt != nil && attempt.Count >= 5 && time.Now().Before(attempt.LockedUntil) {
+		return nil, AccountLockedError{
+			Email:       email,
+			LockedUntil: attempt.LockedUntil.Format(time.RFC3339),
+		}
 	}
 
 	account, err := a.accounts.Read(ctx, email)
@@ -107,9 +122,34 @@ func (a *DefaultAuthenticationService) Authenticate(ctx context.Context, email, 
 	}
 
 	if !authenticated {
+		// Increment failed attempts
+		err = a.failedAttemptRepository.Increment(ctx, email)
+		if err != nil {
+			return nil, err
+		}
+
+		// Check if we need to lock the account
+		attempt, err = a.failedAttemptRepository.Get(ctx, email)
+		if err != nil {
+			return nil, err
+		}
+
+		if attempt != nil && attempt.Count >= 5 {
+			err = a.failedAttemptRepository.Lock(ctx, email, 15*time.Minute)
+			if err != nil {
+				return nil, err
+			}
+		}
+
 		return nil, AuthenticationError{
 			Value: email,
 		}
+	}
+
+	// Clear failed attempts on successful authentication
+	err = a.failedAttemptRepository.Clear(ctx, email)
+	if err != nil {
+		return nil, err
 	}
 
 	accessToken, err := a.tokens.CreateAccessToken(ctx, email, clientID, account.Roles)
