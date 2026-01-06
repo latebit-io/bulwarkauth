@@ -41,10 +41,11 @@ type DefaultLogonCodeService struct {
 	emailService            email.EmailService
 	tokens                  tokens.Tokenizer
 	failedAttemptRepository FailedAttemptRepository
+	options                 AuthenticationOptions
 }
 
 func NewDefaultLogonService(logonRepo LogonCodeRepository, accountsRepository AccountRepository,
-	emailService email.EmailService, tokens tokens.Tokenizer, encrypt Encryption, failedAttempts FailedAttemptRepository) LogonCodeService {
+	emailService email.EmailService, tokens tokens.Tokenizer, encrypt Encryption, failedAttempts FailedAttemptRepository, options AuthenticationOptions) LogonCodeService {
 	return &DefaultLogonCodeService{
 		logonCodeRepository:     logonRepo,
 		accountsRepository:      accountsRepository,
@@ -52,6 +53,7 @@ func NewDefaultLogonService(logonRepo LogonCodeRepository, accountsRepository Ac
 		emailService:            emailService,
 		tokens:                  tokens,
 		failedAttemptRepository: failedAttempts,
+		options:                 options,
 	}
 }
 
@@ -72,7 +74,7 @@ func (s *DefaultLogonCodeService) Authenticate(ctx context.Context, email, clien
 		return nil, err
 	}
 
-	if attempt != nil && attempt.Count >= 5 && time.Now().Before(attempt.LockedUntil) {
+	if attempt != nil && attempt.Count >= s.options.Attempts && time.Now().Before(attempt.LockedUntil) {
 		return nil, AccountLockedError{
 			Email:       email,
 			LockedUntil: attempt.LockedUntil.Format(time.RFC3339),
@@ -131,8 +133,8 @@ func (s *DefaultLogonCodeService) Authenticate(ctx context.Context, email, clien
 		return nil, err
 	}
 
-	if attempt != nil && attempt.Count >= 5 {
-		err = s.failedAttemptRepository.Lock(ctx, email, 15*time.Minute)
+	if attempt != nil && attempt.Count >= s.options.Attempts {
+		err = s.failedAttemptRepository.Lock(ctx, email, time.Duration(s.options.LockOutDuration)*time.Minute)
 		if err != nil {
 			return nil, err
 		}

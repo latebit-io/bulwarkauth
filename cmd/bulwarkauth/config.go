@@ -40,6 +40,8 @@ type AppConfig struct {
 	TestMode                    bool
 	PasswordEncryptionCost      int
 	RequestsPerSecond           int
+	AuthenticationAttempts      int
+	LockoutDurationInMins       int
 }
 
 func NewAppConfig() (*AppConfig, error) {
@@ -101,6 +103,8 @@ func NewAppConfig() (*AppConfig, error) {
 	config.CORSEnabled = getEnv("CORS_ENABLED", "false") == "true"
 	config.PasswordEncryptionCost = getEnvAsInt("PASSWORD_COST", 12)
 	config.RequestsPerSecond = getEnvAsInt("REQUESTS_PER_SECOND", 20)
+	config.AuthenticationAttempts = getEnvAsInt("AUTHENTICATION_ATTEMPTS", 5)
+	config.LockoutDurationInMins = getEnvAsInt("LOCKOUT_DURATION_IN_MINS", 15)
 
 	return config, nil
 }

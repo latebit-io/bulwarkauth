@@ -9,6 +9,10 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
+const (
+	failedAttemptsCollectionName = "failedAttempts"
+)
+
 type FailedAttempt struct {
 	Email       string    `bson:"email"`
 	Count       int       `bson:"count"`
@@ -28,7 +32,7 @@ type MongoFailedAttemptRepository struct {
 }
 
 func NewMongoFailedAttemptRepository(db *mongo.Database) FailedAttemptRepository {
-	collection := db.Collection("failed_attempts")
+	collection := db.Collection(failedAttemptsCollectionName)
 
 	// Create index on email
 	_, _ = collection.Indexes().CreateOne(context.Background(), mongo.IndexModel{

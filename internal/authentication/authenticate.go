@@ -63,21 +63,30 @@ type RefreshTokenClaims struct {
 	ClientID  string    `json:"clientId,omitempty"`
 }
 
+// AuthenticationOptions additional configurations
+type AuthenticationOptions struct {
+	Attempts        int `json:"attempts"`
+	LockOutDuration int `json:"lockOutDuration"`
+}
+
 // DefaultAuthenticationService is the default implementation of AuthenticationService.
 type DefaultAuthenticationService struct {
 	accounts                AccountRepository
 	tokens                  Tokenizer
 	tokenRepository         TokenRepository
 	failedAttemptRepository FailedAttemptRepository
+	options                 AuthenticationOptions
 }
 
 // NewDefaultAuthenticationService creates a new DefaultAuthenticationService.
-func NewDefaultAuthenticationService(accounts AccountRepository, tokens TokenRepository, tokenizer Tokenizer, failedAttempts FailedAttemptRepository) AuthenticationService {
+func NewDefaultAuthenticationService(accounts AccountRepository,
+	tokens TokenRepository, tokenizer Tokenizer, failedAttempts FailedAttemptRepository, options AuthenticationOptions) AuthenticationService {
 	return &DefaultAuthenticationService{
 		accounts:                accounts,
 		tokens:                  tokenizer,
 		tokenRepository:         tokens,
 		failedAttemptRepository: failedAttempts,
+		options:                 options,
 	}
 }
 
@@ -99,7 +108,7 @@ func (a *DefaultAuthenticationService) Authenticate(ctx context.Context, email, 
 		return nil, err
 	}
 
-	if attempt != nil && attempt.Count >= 5 && time.Now().Before(attempt.LockedUntil) {
+	if attempt != nil && attempt.Count >= a.options.Attempts && time.Now().Before(attempt.LockedUntil) {
 		return nil, AccountLockedError{
 			Email:       email,
 			LockedUntil: attempt.LockedUntil.Format(time.RFC3339),
@@ -134,8 +143,9 @@ func (a *DefaultAuthenticationService) Authenticate(ctx context.Context, email, 
 			return nil, err
 		}
 
-		if attempt != nil && attempt.Count >= 5 {
-			err = a.failedAttemptRepository.Lock(ctx, email, 15*time.Minute)
+		if attempt != nil && attempt.Count >= a.options.Attempts {
+			err = a.failedAttemptRepository.Lock(ctx, email,
+				time.Duration(a.options.LockOutDuration)*time.Minute)
 			if err != nil {
 				return nil, err
 			}

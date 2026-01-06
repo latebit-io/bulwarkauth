@@ -203,6 +203,11 @@ func (a MongodbAccountRepository) PasswordMatches(ctx context.Context, email, pa
 
 	err = bcrypt.CompareHashAndPassword([]byte(r["password"].(string)), []byte(password))
 	if err != nil {
+		// If the password doesn't match, return false without error
+		if errors.Is(err, bcrypt.ErrMismatchedHashAndPassword) {
+			return false, nil
+		}
+		// For other bcrypt errors (invalid hash format, etc.), return the error
 		return false, err
 	}
 
