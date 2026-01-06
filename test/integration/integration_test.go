@@ -498,7 +498,7 @@ func TestAccountLockoutExpiresAndResetsCounter(t *testing.T) {
 	wrongPassword := "WrongPassword123!"
 
 	// Fail 5 times to trigger lockout
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		_, err := guard.Authenticate.Password(ctx, email, wrongPassword, clientID)
 		require.Error(t, err)
 	}
