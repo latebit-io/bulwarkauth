@@ -7,7 +7,7 @@ type AuthenticationError struct {
 }
 
 func (e AuthenticationError) Error() string {
-	return fmt.Sprintf("authentication failed for %s", e.Value)
+	return fmt.Sprintf("cannot authenticate account: %s", e.Value)
 }
 
 type TokenNotAcknowledged struct {
@@ -24,5 +24,5 @@ type AccountLockedError struct {
 }
 
 func (e AccountLockedError) Error() string {
-	return fmt.Sprintf("account locked until %s", e.LockedUntil)
+	return fmt.Sprintf("account is temporarily locked due, too many attempts")
 }

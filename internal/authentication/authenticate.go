@@ -108,6 +108,15 @@ func (a *DefaultAuthenticationService) Authenticate(ctx context.Context, email, 
 		return nil, err
 	}
 
+	// If lockout period has expired, clear the failed attempts
+	if attempt != nil && !attempt.LockedUntil.IsZero() && time.Now().After(attempt.LockedUntil) {
+		err = a.failedAttemptRepository.Clear(ctx, email)
+		if err != nil {
+			return nil, err
+		}
+		attempt = nil
+	}
+
 	if attempt != nil && attempt.Count >= a.options.Attempts && time.Now().Before(attempt.LockedUntil) {
 		return nil, AccountLockedError{
 			Email:       email,
@@ -131,24 +140,12 @@ func (a *DefaultAuthenticationService) Authenticate(ctx context.Context, email, 
 	}
 
 	if !authenticated {
-		// Increment failed attempts
-		err = a.failedAttemptRepository.Increment(ctx, email)
+		// Atomically increment failed attempts and lock if threshold reached
+		_, err = a.failedAttemptRepository.IncrementAndLockIfNeeded(ctx, email,
+			a.options.Attempts,
+			time.Duration(a.options.LockOutDuration)*time.Minute)
 		if err != nil {
 			return nil, err
-		}
-
-		// Check if we need to lock the account
-		attempt, err = a.failedAttemptRepository.Get(ctx, email)
-		if err != nil {
-			return nil, err
-		}
-
-		if attempt != nil && attempt.Count >= a.options.Attempts {
-			err = a.failedAttemptRepository.Lock(ctx, email,
-				time.Duration(a.options.LockOutDuration)*time.Minute)
-			if err != nil {
-				return nil, err
-			}
 		}
 
 		return nil, AuthenticationError{

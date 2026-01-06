@@ -250,3 +250,78 @@ func TestFailedAttempts_AccountLockout(t *testing.T) {
 		t.Error("Expected account to be locked")
 	}
 }
+
+func TestMongoFailedAttemptRepository_IncrementAndLockIfNeeded(t *testing.T) {
+	ctx := context.Background()
+	mongodb := utils.NewMongoTestUtil()
+	mongoServer, err := mongodb.CreateServer()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer mongoServer.Stop()
+
+	clientOptions := options.Client().ApplyURI(mongoServer.URI())
+	client, err := mongo.Connect(ctx, clientOptions)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer client.Disconnect(ctx)
+
+	db := client.Database("testdb")
+	repo := NewMongoFailedAttemptRepository(db)
+	email := "test@example.com"
+	maxAttempts := 5
+	lockDuration := 15 * time.Minute
+
+	// First 4 attempts should not lock
+	for i := 0; i < 4; i++ {
+		locked, err := repo.IncrementAndLockIfNeeded(ctx, email, maxAttempts, lockDuration)
+		if err != nil {
+			t.Fatalf("Failed on attempt %d: %v", i+1, err)
+		}
+		if locked {
+			t.Errorf("Should not be locked on attempt %d", i+1)
+		}
+	}
+
+	attempt, err := repo.Get(ctx, email)
+	if err != nil {
+		t.Fatalf("Failed to get attempt: %v", err)
+	}
+	if attempt.Count != 4 {
+		t.Errorf("Expected count to be 4, got %d", attempt.Count)
+	}
+	if !attempt.LockedUntil.IsZero() {
+		t.Error("Account should not be locked yet")
+	}
+
+	// 5th attempt should lock
+	locked, err := repo.IncrementAndLockIfNeeded(ctx, email, maxAttempts, lockDuration)
+	if err != nil {
+		t.Fatalf("Failed on 5th attempt: %v", err)
+	}
+	if !locked {
+		t.Error("Account should be locked on 5th attempt")
+	}
+
+	attempt, err = repo.Get(ctx, email)
+	if err != nil {
+		t.Fatalf("Failed to get attempt: %v", err)
+	}
+	if attempt.Count != 5 {
+		t.Errorf("Expected count to be 5, got %d", attempt.Count)
+	}
+	if attempt.LockedUntil.IsZero() {
+		t.Error("LockedUntil should be set")
+	}
+	if !time.Now().Before(attempt.LockedUntil) {
+		t.Error("Account should be locked (LockedUntil should be in future)")
+	}
+
+	// Verify lock duration is approximately correct
+	expectedLockTime := time.Now().Add(lockDuration)
+	timeDiff := attempt.LockedUntil.Sub(expectedLockTime).Abs()
+	if timeDiff > time.Second {
+		t.Errorf("LockedUntil duration incorrect, diff: %v", timeDiff)
+	}
+}

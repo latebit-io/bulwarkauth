@@ -25,6 +25,7 @@ type FailedAttemptRepository interface {
 	Increment(ctx context.Context, email string) error
 	Lock(ctx context.Context, email string, duration time.Duration) error
 	Clear(ctx context.Context, email string) error
+	IncrementAndLockIfNeeded(ctx context.Context, email string, maxAttempts int, lockDuration time.Duration) (bool, error)
 }
 
 type MongoFailedAttemptRepository struct {
@@ -94,4 +95,49 @@ func (r *MongoFailedAttemptRepository) Lock(ctx context.Context, email string, d
 func (r *MongoFailedAttemptRepository) Clear(ctx context.Context, email string) error {
 	_, err := r.collection.DeleteOne(ctx, bson.M{"email": email})
 	return err
+}
+
+// IncrementAndLockIfNeeded atomically increments the failed attempt count and locks the account if the threshold is reached.
+// Returns true if the account was locked, false otherwise.
+func (r *MongoFailedAttemptRepository) IncrementAndLockIfNeeded(ctx context.Context, email string, maxAttempts int, lockDuration time.Duration) (bool, error) {
+	now := time.Now()
+	lockedUntil := now.Add(lockDuration)
+
+	// First, increment the counter
+	update := bson.M{
+		"$inc": bson.M{"count": 1},
+		"$set": bson.M{"updatedAt": now},
+		"$setOnInsert": bson.M{
+			"email":       email,
+			"lockedUntil": time.Time{},
+		},
+	}
+
+	opts := options.FindOneAndUpdate().
+		SetUpsert(true).
+		SetReturnDocument(options.After)
+
+	var result FailedAttempt
+	err := r.collection.FindOneAndUpdate(ctx, bson.M{"email": email}, update, opts).Decode(&result)
+	if err != nil {
+		return false, err
+	}
+
+	// If we've reached the threshold, lock the account
+	if result.Count >= maxAttempts {
+		lockUpdate := bson.M{
+			"$set": bson.M{
+				"lockedUntil": lockedUntil,
+				"updatedAt":   now,
+			},
+		}
+
+		_, err := r.collection.UpdateOne(ctx, bson.M{"email": email}, lockUpdate)
+		if err != nil {
+			return false, err
+		}
+		return true, nil
+	}
+
+	return false, nil
 }
