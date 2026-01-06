@@ -514,7 +514,7 @@ func TestAccountLockoutExpiresAndResetsCounter(t *testing.T) {
 	defer mongodb.Disconnect(ctx)
 
 	collection := mongodb.Database("bulwarkauth").Collection("failedAttempts")
-	_, err = collection.UpdateOne(ctx,
+	u, err := collection.UpdateOne(ctx,
 		map[string]interface{}{"email": email},
 		map[string]interface{}{
 			"$set": map[string]interface{}{
@@ -522,6 +522,9 @@ func TestAccountLockoutExpiresAndResetsCounter(t *testing.T) {
 			},
 		},
 	)
+	if u.ModifiedCount == 0 {
+		t.Fatal("Failed to update failedAttempts record")
+	}
 	require.NoError(t, err)
 
 	// Now authentication should work and the counter should be cleared
