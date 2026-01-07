@@ -60,6 +60,9 @@ The codebase follows a clean architecture pattern with three main layers:
 - SMTP configuration via environment variables
 - Test mode bypasses actual sending
 
+## Coding Standards
+ - always use range for loops when possible
+
 ## Development Commands
 
 ### Build and Run

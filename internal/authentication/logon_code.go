@@ -35,21 +35,25 @@ type EmailService interface {
 }
 
 type DefaultLogonCodeService struct {
-	logonCodeRepository LogonCodeRepository
-	accountsRepository  AccountRepository
-	encrypt             Encryption
-	emailService        email.EmailService
-	tokens              tokens.Tokenizer
+	logonCodeRepository     LogonCodeRepository
+	accountsRepository      AccountRepository
+	encrypt                 Encryption
+	emailService            email.EmailService
+	tokens                  tokens.Tokenizer
+	failedAttemptRepository FailedAttemptRepository
+	options                 AuthenticationOptions
 }
 
 func NewDefaultLogonService(logonRepo LogonCodeRepository, accountsRepository AccountRepository,
-	emailService email.EmailService, tokens tokens.Tokenizer, encrypt Encryption) LogonCodeService {
+	emailService email.EmailService, tokens tokens.Tokenizer, encrypt Encryption, failedAttempts FailedAttemptRepository, options AuthenticationOptions) LogonCodeService {
 	return &DefaultLogonCodeService{
-		logonCodeRepository: logonRepo,
-		accountsRepository:  accountsRepository,
-		encrypt:             encrypt,
-		emailService:        emailService,
-		tokens:              tokens,
+		logonCodeRepository:     logonRepo,
+		accountsRepository:      accountsRepository,
+		encrypt:                 encrypt,
+		emailService:            emailService,
+		tokens:                  tokens,
+		failedAttemptRepository: failedAttempts,
+		options:                 options,
 	}
 }
 
@@ -64,6 +68,28 @@ func (s *DefaultLogonCodeService) Authenticate(ctx context.Context, email, clien
 		return nil, err
 	}
 
+	// Check if account is locked due to failed attempts
+	attempt, err := s.failedAttemptRepository.Get(ctx, email)
+	if err != nil {
+		return nil, err
+	}
+
+	// If lockout period has expired, clear the failed attempts
+	if attempt != nil && !attempt.LockedUntil.IsZero() && time.Now().After(attempt.LockedUntil) {
+		err = s.failedAttemptRepository.Clear(ctx, email)
+		if err != nil {
+			return nil, err
+		}
+		attempt = nil
+	}
+
+	if attempt != nil && attempt.Count >= s.options.Attempts && time.Now().Before(attempt.LockedUntil) {
+		return nil, AccountLockedError{
+			Email:       email,
+			LockedUntil: attempt.LockedUntil.Format(time.RFC3339),
+		}
+	}
+
 	compareCode, err := s.logonCodeRepository.Read(ctx, email)
 	if err != nil {
 		return nil, err
@@ -75,6 +101,12 @@ func (s *DefaultLogonCodeService) Authenticate(ctx context.Context, email, clien
 	}
 
 	if verified {
+		// Clear failed attempts on successful authentication
+		err = s.failedAttemptRepository.Clear(ctx, email)
+		if err != nil {
+			return nil, err
+		}
+
 		account, err := s.accountsRepository.Read(ctx, email)
 		if err != nil {
 			return nil, err
@@ -96,6 +128,14 @@ func (s *DefaultLogonCodeService) Authenticate(ctx context.Context, email, clien
 			AccessToken:  accessToken,
 			RefreshToken: refreshToken,
 		}, nil
+	}
+
+	// Atomically increment failed attempts and lock if threshold reached
+	_, err = s.failedAttemptRepository.IncrementAndLockIfNeeded(ctx, email,
+		s.options.Attempts,
+		time.Duration(s.options.LockOutDuration)*time.Second)
+	if err != nil {
+		return nil, err
 	}
 
 	return nil, AuthenticationError{

@@ -1,6 +1,8 @@
 package encryption
 
 import (
+	"errors"
+
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -35,6 +37,11 @@ func (d DefaultEncryption) Encrypt(password string) (string, error) {
 func (d DefaultEncryption) Verify(password, verifyPassword string) (bool, error) {
 	err := bcrypt.CompareHashAndPassword([]byte(password), []byte(verifyPassword))
 	if err != nil {
+		// If the password doesn't match, return false without error
+		if errors.Is(err, bcrypt.ErrMismatchedHashAndPassword) {
+			return false, nil
+		}
+		// For other bcrypt errors (invalid hash format, etc.), return the error
 		return false, err
 	}
 	return true, nil

@@ -347,3 +347,149 @@ func TestPasswordChange(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotEmpty(t, newAuth.AccessToken)
 }
+
+func TestAccountLockoutAfterFailedAttempts(t *testing.T) {
+	ctx := context.Background()
+	email, password := createAndVerifyAccount(ctx, t)
+	clientID := generateClientID()
+	wrongPassword := "WrongPassword123!"
+
+	// Attempt 1-4: Wrong password, should fail but not lock
+	for range 4 {
+		_, err := guard.Authenticate.Password(ctx, email, wrongPassword, clientID)
+		require.Error(t, err, "Wrong password should fail")
+	}
+
+	// Attempt 5: Should fail and trigger lockout
+	_, err := guard.Authenticate.Password(ctx, email, wrongPassword, clientID)
+	require.Error(t, err, "Fifth wrong password should fail and lock account")
+
+	// Attempt 6: Should be locked even with correct password
+	_, err = guard.Authenticate.Password(ctx, email, password, clientID)
+	require.Error(t, err, "Account should be locked")
+	assert.Contains(t, err.Error(), "locked", "Error should indicate account is locked")
+
+	// Attempt 7: Wrong password while locked
+	_, err = guard.Authenticate.Password(ctx, email, wrongPassword, clientID)
+	require.Error(t, err, "Account should still be locked")
+	assert.Contains(t, err.Error(), "locked", "Error should indicate account is locked")
+}
+
+func TestAccountLockoutMagicCode(t *testing.T) {
+	ctx := context.Background()
+	email, _ := createAndVerifyAccount(ctx, t)
+	clientID := generateClientID()
+	wrongCode := "000000"
+
+	// Attempt 1-4: Wrong magic code
+	for range 4 {
+		err := guard.Authenticate.RequestMagicCode(ctx, email)
+		require.NoError(t, err)
+		time.Sleep(100 * time.Millisecond)
+
+		_, err = guard.Authenticate.MagicCode(ctx, email, wrongCode, clientID)
+		require.Error(t, err, "Wrong magic code should fail")
+	}
+
+	// Attempt 5: Should fail and trigger lockout
+	err := guard.Authenticate.RequestMagicCode(ctx, email)
+	require.NoError(t, err)
+	time.Sleep(100 * time.Millisecond)
+
+	_, err = guard.Authenticate.MagicCode(ctx, email, wrongCode, clientID)
+	require.Error(t, err, "Fifth wrong code should fail and lock account")
+
+	// Request new code and try with correct code - should be locked
+	err = guard.Authenticate.RequestMagicCode(ctx, email)
+	require.NoError(t, err)
+	time.Sleep(100 * time.Millisecond)
+
+	magicCode, err := getMagicCode(ctx, email)
+	require.NoError(t, err)
+
+	_, err = guard.Authenticate.MagicCode(ctx, email, magicCode, clientID)
+	require.Error(t, err, "Account should be locked even with correct magic code")
+	assert.Contains(t, err.Error(), "locked", "Error should indicate account is locked")
+}
+
+func TestAccountLockoutClearsOnSuccessfulLogin(t *testing.T) {
+	ctx := context.Background()
+	email, password := createAndVerifyAccount(ctx, t)
+	clientID := generateClientID()
+	wrongPassword := "WrongPassword123!"
+
+	// Fail 3 times
+	for range 3 {
+		_, err := guard.Authenticate.Password(ctx, email, wrongPassword, clientID)
+		require.Error(t, err)
+	}
+
+	// Successful login should clear failed attempts
+	auth, err := guard.Authenticate.Password(ctx, email, password, clientID)
+	require.NoError(t, err)
+	assert.NotEmpty(t, auth.AccessToken)
+
+	// Acknowledge
+	err = guard.Authenticate.Acknowledge(ctx, auth)
+	require.NoError(t, err)
+
+	// Should be able to fail 5 more times before lockout (counter was reset)
+	for range 4 {
+		_, err := guard.Authenticate.Password(ctx, email, wrongPassword, clientID)
+		require.Error(t, err, "Wrong password should fail")
+	}
+
+	// 5th attempt should lock again
+	_, err = guard.Authenticate.Password(ctx, email, wrongPassword, clientID)
+	require.Error(t, err)
+
+	// Should be locked
+	_, err = guard.Authenticate.Password(ctx, email, password, clientID)
+	require.Error(t, err, "Account should be locked after 5 new failures")
+	assert.Contains(t, err.Error(), "locked", "Error should indicate account is locked")
+}
+
+func TestAccountLockoutExpiresAndResetsCounter(t *testing.T) {
+	// NOTE: This test uses LOCKOUT_DURATION_IN_SEC from .env (default 5 seconds for testing)
+	// The lockout should expire automatically and allow authentication again
+	ctx := context.Background()
+	email, password := createAndVerifyAccount(ctx, t)
+	clientID := generateClientID()
+	wrongPassword := "WrongPassword123!"
+
+	// Fail 5 times to trigger lockout
+	for range 5 {
+		_, err := guard.Authenticate.Password(ctx, email, wrongPassword, clientID)
+		require.Error(t, err)
+	}
+
+	// Verify locked
+	_, err := guard.Authenticate.Password(ctx, email, password, clientID)
+	require.Error(t, err, "Account should be locked")
+	assert.Contains(t, err.Error(), "locked")
+
+	// Wait for lockout to expire (LOCKOUT_DURATION_IN_SEC + buffer)
+	// Default is 2 seconds in test .env, add 1 second buffer for processing time and clock precision
+	time.Sleep(3 * time.Second)
+
+	// Now authentication should work and the counter should be cleared
+	auth, err := guard.Authenticate.Password(ctx, email, password, clientID)
+	require.NoError(t, err, "Lockout should have expired, authentication should succeed")
+	assert.NotEmpty(t, auth.AccessToken)
+
+	// Acknowledge the successful authentication
+	err = guard.Authenticate.Acknowledge(ctx, auth)
+	require.NoError(t, err)
+
+	// Verify the failed attempts counter was reset by trying 4 more failed attempts
+	// (should not lock since counter was reset)
+	for range 4 {
+		_, err := guard.Authenticate.Password(ctx, email, wrongPassword, clientID)
+		require.Error(t, err, "Wrong password should fail")
+	}
+
+	// Should still be able to authenticate (not locked yet, only 4 failures)
+	auth2, err := guard.Authenticate.Password(ctx, email, password, clientID)
+	require.NoError(t, err, "Should not be locked after only 4 failures post-reset")
+	assert.NotEmpty(t, auth2.AccessToken)
+}

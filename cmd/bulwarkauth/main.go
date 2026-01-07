@@ -99,11 +99,18 @@ func main() {
 	accountHandlers := accountsapi.NewAccountHandler(accountsService)
 	accountsapi.AccountRoutes(service, accountHandlers, ratelimiter)
 	tokenRepo := authentication.NewDefaultTokenRepository(mongodb)
-	authenticationService := authentication.NewDefaultAuthenticationService(accountsRepo, tokenRepo, tokenizer)
+	failedAttemptRepo := authentication.NewMongoFailedAttemptRepository(mongodb)
+	authenticationService := authentication.NewDefaultAuthenticationService(accountsRepo, tokenRepo, tokenizer, failedAttemptRepo, authentication.AuthenticationOptions{
+		Attempts:        config.AuthenticationAttempts,
+		LockOutDuration: config.LockoutDurationInSecs,
+	})
 	authenticationHandler := authenticationapi.NewAuthenticationHandler(authenticationService)
 	authenticationapi.AuthenticationRoutes(service, authenticationHandler, ratelimiter)
 	logonRepo := authentication.NewDefaultLogonCodeRepository(mongodb)
-	logonService := authentication.NewDefaultLogonService(logonRepo, accountsRepo, emailService, tokenizer, encrypt)
+	logonService := authentication.NewDefaultLogonService(logonRepo, accountsRepo, emailService, tokenizer, encrypt, failedAttemptRepo, authentication.AuthenticationOptions{
+		Attempts:        config.AuthenticationAttempts,
+		LockOutDuration: config.LockoutDurationInSecs,
+	})
 	logonCodeHandlers := authenticationapi.NewLogonCodeHandlers(logonService)
 	authenticationapi.LogonRoutes(service, logonCodeHandlers, ratelimiter)
 	google, err := social.NewGoogleValidator(config.GoogleClientId)
