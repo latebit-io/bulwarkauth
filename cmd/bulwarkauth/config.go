@@ -41,7 +41,7 @@ type AppConfig struct {
 	PasswordEncryptionCost      int
 	RequestsPerSecond           int
 	AuthenticationAttempts      int
-	LockoutDurationInMins       int
+	LockoutDurationInSecs       int
 }
 
 func NewAppConfig() (*AppConfig, error) {
@@ -104,7 +104,7 @@ func NewAppConfig() (*AppConfig, error) {
 	config.PasswordEncryptionCost = getEnvAsInt("PASSWORD_COST", 12)
 	config.RequestsPerSecond = getEnvAsInt("REQUESTS_PER_SECOND", 20)
 	config.AuthenticationAttempts = getEnvAsInt("AUTHENTICATION_ATTEMPTS", 5)
-	config.LockoutDurationInMins = getEnvAsInt("LOCKOUT_DURATION_IN_MINS", 15)
+	config.LockoutDurationInSecs = getEnvAsInt("LOCKOUT_DURATION_IN_SEC", 15*60)
 
 	return config, nil
 }

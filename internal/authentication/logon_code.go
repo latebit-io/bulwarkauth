@@ -133,7 +133,7 @@ func (s *DefaultLogonCodeService) Authenticate(ctx context.Context, email, clien
 	// Atomically increment failed attempts and lock if threshold reached
 	_, err = s.failedAttemptRepository.IncrementAndLockIfNeeded(ctx, email,
 		s.options.Attempts,
-		time.Duration(s.options.LockOutDuration)*time.Minute)
+		time.Duration(s.options.LockOutDuration)*time.Second)
 	if err != nil {
 		return nil, err
 	}

@@ -14,8 +14,6 @@ import (
 	gohog "github.com/latebit-io/go-hog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 const (
@@ -47,16 +45,6 @@ func generateTestEmail() string {
 
 func generateClientID() string {
 	return fmt.Sprintf("client-%s", uuid.New().String())
-}
-
-func connectToMongoDB() (*mongo.Client, error) {
-	ctx := context.Background()
-	clientOptions := options.Client().ApplyURI("mongodb://localhost:27017")
-	client, err := mongo.Connect(ctx, clientOptions)
-	if err != nil {
-		return nil, err
-	}
-	return client, nil
 }
 
 func findMessageForEmail(email string) (*gohog.Message, error) {
@@ -446,7 +434,7 @@ func TestAccountLockoutClearsOnSuccessfulLogin(t *testing.T) {
 	require.NoError(t, err)
 
 	// Should be able to fail 5 more times before lockout (counter was reset)
-	for i := 0; i < 4; i++ {
+	for range 4 {
 		_, err := guard.Authenticate.Password(ctx, email, wrongPassword, clientID)
 		require.Error(t, err, "Wrong password should fail")
 	}
@@ -461,37 +449,9 @@ func TestAccountLockoutClearsOnSuccessfulLogin(t *testing.T) {
 	assert.Contains(t, err.Error(), "locked", "Error should indicate account is locked")
 }
 
-func TestAccountLockoutExpiresAfter15Minutes(t *testing.T) {
-	t.Skip("Skipping test that requires 15 minute wait - enable for full integration testing")
-
-	ctx := context.Background()
-	email, password := createAndVerifyAccount(ctx, t)
-	clientID := generateClientID()
-	wrongPassword := "WrongPassword123!"
-
-	// Fail 5 times to trigger lockout
-	for i := 0; i < 5; i++ {
-		_, err := guard.Authenticate.Password(ctx, email, wrongPassword, clientID)
-		require.Error(t, err)
-	}
-
-	// Verify locked
-	_, err := guard.Authenticate.Password(ctx, email, password, clientID)
-	require.Error(t, err, "Account should be locked")
-	assert.Contains(t, err.Error(), "locked")
-
-	// Wait 15 minutes for lockout to expire
-	time.Sleep(15*time.Minute + 10*time.Second)
-
-	// Should be able to authenticate now
-	auth, err := guard.Authenticate.Password(ctx, email, password, clientID)
-	require.NoError(t, err, "Lockout should have expired after 15 minutes")
-	assert.NotEmpty(t, auth.AccessToken)
-}
-
 func TestAccountLockoutExpiresAndResetsCounter(t *testing.T) {
-	// NOTE: This test uses the actual 15-minute lockout configured in docker-compose
-	// but mocks the time by manipulating the MongoDB record directly
+	// NOTE: This test uses LOCKOUT_DURATION_IN_SEC from .env (default 5 seconds for testing)
+	// The lockout should expire automatically and allow authentication again
 	ctx := context.Background()
 	email, password := createAndVerifyAccount(ctx, t)
 	clientID := generateClientID()
@@ -508,32 +468,28 @@ func TestAccountLockoutExpiresAndResetsCounter(t *testing.T) {
 	require.Error(t, err, "Account should be locked")
 	assert.Contains(t, err.Error(), "locked")
 
-	// Manually set the lockout to have expired by updating MongoDB directly
-	mongodb, err := connectToMongoDB()
-	require.NoError(t, err)
-	defer mongodb.Disconnect(ctx)
-
-	collection := mongodb.Database("bulwarkauth").Collection("failedAttempts")
-	u, err := collection.UpdateOne(ctx,
-		map[string]interface{}{"email": email},
-		map[string]interface{}{
-			"$set": map[string]interface{}{
-				"lockedUntil": time.Now().Add(-1 * time.Minute), // Set to 1 minute ago
-			},
-		},
-	)
-	if u.ModifiedCount == 0 {
-		t.Fatal("Failed to update failedAttempts record")
-	}
-	require.NoError(t, err)
+	// Wait for lockout to expire (LOCKOUT_DURATION_IN_SEC + buffer)
+	// Default is 2 seconds in test .env, add 1 second buffer for processing time and clock precision
+	time.Sleep(3 * time.Second)
 
 	// Now authentication should work and the counter should be cleared
 	auth, err := guard.Authenticate.Password(ctx, email, password, clientID)
 	require.NoError(t, err, "Lockout should have expired, authentication should succeed")
 	assert.NotEmpty(t, auth.AccessToken)
 
-	// Verify the failed attempts record was cleared
-	var result map[string]interface{}
-	err = collection.FindOne(ctx, map[string]interface{}{"email": email}).Decode(&result)
-	assert.Error(t, err, "Failed attempts record should be deleted after lockout expires")
+	// Acknowledge the successful authentication
+	err = guard.Authenticate.Acknowledge(ctx, auth)
+	require.NoError(t, err)
+
+	// Verify the failed attempts counter was reset by trying 4 more failed attempts
+	// (should not lock since counter was reset)
+	for range 4 {
+		_, err := guard.Authenticate.Password(ctx, email, wrongPassword, clientID)
+		require.Error(t, err, "Wrong password should fail")
+	}
+
+	// Should still be able to authenticate (not locked yet, only 4 failures)
+	auth2, err := guard.Authenticate.Password(ctx, email, password, clientID)
+	require.NoError(t, err, "Should not be locked after only 4 failures post-reset")
+	assert.NotEmpty(t, auth2.AccessToken)
 }
