@@ -355,7 +355,7 @@ func TestAccountLockoutAfterFailedAttempts(t *testing.T) {
 	wrongPassword := "WrongPassword123!"
 
 	// Attempt 1-4: Wrong password, should fail but not lock
-	for i := 0; i < 4; i++ {
+	for range 4 {
 		_, err := guard.Authenticate.Password(ctx, email, wrongPassword, clientID)
 		require.Error(t, err, "Wrong password should fail")
 	}
@@ -382,7 +382,7 @@ func TestAccountLockoutMagicCode(t *testing.T) {
 	wrongCode := "000000"
 
 	// Attempt 1-4: Wrong magic code
-	for i := 0; i < 4; i++ {
+	for range 4 {
 		err := guard.Authenticate.RequestMagicCode(ctx, email)
 		require.NoError(t, err)
 		time.Sleep(100 * time.Millisecond)
@@ -419,7 +419,7 @@ func TestAccountLockoutClearsOnSuccessfulLogin(t *testing.T) {
 	wrongPassword := "WrongPassword123!"
 
 	// Fail 3 times
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		_, err := guard.Authenticate.Password(ctx, email, wrongPassword, clientID)
 		require.Error(t, err)
 	}

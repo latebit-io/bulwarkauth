@@ -102,6 +102,7 @@ jobs:
           TEST_MODE: true
           API_KEY_ENABLE: false
           CORS_ENABLED: false
+          LOCKOUT_DURATION_IN_SEC: 2
 
       - name: Run integration tests
         run: go test -v ./...
