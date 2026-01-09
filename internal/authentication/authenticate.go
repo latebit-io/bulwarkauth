@@ -12,22 +12,22 @@ import (
 
 // AuthenticationService defines the interface for authentication services.
 type AuthenticationService interface {
-	Authenticate(ctx context.Context, email, clientID, password string) (*Authenticated, error)
-	Acknowledge(ctx context.Context, Authenticate Authenticated) error
-	ValidateAccessToken(ctx context.Context, accessToken string) (*AccessTokenClaims, error)
-	ValidateRefreshToken(ctx context.Context, refreshToken string) (*RefreshTokenClaims, error)
-	Renew(ctx context.Context, refreshToken string) (*Authenticated, error)
-	Revoke(ctx context.Context, accessToken string) error
+	Authenticate(ctx context.Context, tenantID, email, clientID, password string) (*Authenticated, error)
+	Acknowledge(ctx context.Context, tenantID, Authenticate Authenticated) error
+	ValidateAccessToken(ctx context.Context, tenantID, accessToken string) (*AccessTokenClaims, error)
+	ValidateRefreshToken(ctx context.Context, tenantID, refreshToken string) (*RefreshTokenClaims, error)
+	Renew(ctx context.Context, tenantID, refreshToken string) (*Authenticated, error)
+	Revoke(ctx context.Context, tenantID, accessToken string) error
 }
 
 type AccountRepository interface {
-	Read(ctx context.Context, email string) (*accounts.Account, error)
-	PasswordMatches(ctx context.Context, email, password string) (bool, error)
+	Read(ctx context.Context, tenantID, email string) (*accounts.Account, error)
+	PasswordMatches(ctx context.Context, tenantID, email, password string) (bool, error)
 }
 
 type Tokenizer interface {
-	CreateAccessToken(ctx context.Context, email, clientID string, rbac []string) (string, error)
-	CreateRefreshToken(ctx context.Context, email, clientID string) (string, error)
+	CreateAccessToken(ctx context.Context, tenantID, email, clientID string, rbac []string) (string, error)
+	CreateRefreshToken(ctx context.Context, tenantID, email, clientID string) (string, error)
 	ValidateRefreshToken(ctx context.Context, tokenString string) (*tokens.RefreshTokenClaims, error)
 	ValidateAccessToken(ctx context.Context, tokenString string) (*tokens.AccessTokenClaims, error)
 }
@@ -49,6 +49,7 @@ type AccessTokenClaims struct {
 	IssuedAt  time.Time `json:"issuedAt"`
 	ID        string    `json:"Id,omitempty"`
 	ClientID  string    `json:"clientId,omitempty"`
+	TenantID  string    `json:"tenantId,omitempty"`
 }
 
 // RefreshTokenClaims represents the claims in a refresh token.
@@ -61,6 +62,7 @@ type RefreshTokenClaims struct {
 	IssuedAt  time.Time `json:"issuedAt"`
 	ID        string    `json:"Id,omitempty"`
 	ClientID  string    `json:"clientId,omitempty"`
+	TenantID  string    `json:"tenantId,omitempty"`
 }
 
 // AuthenticationOptions additional configurations
@@ -91,7 +93,7 @@ func NewDefaultAuthenticationService(accounts AccountRepository,
 }
 
 // Authenticate authenticates a user by their email and password.
-func (a *DefaultAuthenticationService) Authenticate(ctx context.Context, email, clientID, password string) (*Authenticated, error) {
+func (a *DefaultAuthenticationService) Authenticate(ctx context.Context, tenantID, email, clientID, password string) (*Authenticated, error) {
 	err := utils.ValidateEmail(email)
 	if err != nil {
 		return nil, err
@@ -124,7 +126,7 @@ func (a *DefaultAuthenticationService) Authenticate(ctx context.Context, email, 
 		}
 	}
 
-	account, err := a.accounts.Read(ctx, email)
+	account, err := a.accounts.Read(ctx, tenantID, email)
 	if err != nil {
 		return nil, err
 	}
@@ -134,7 +136,7 @@ func (a *DefaultAuthenticationService) Authenticate(ctx context.Context, email, 
 		return nil, err
 	}
 
-	authenticated, err := a.accounts.PasswordMatches(ctx, email, password)
+	authenticated, err := a.accounts.PasswordMatches(ctx, tenantID, email, password)
 	if err != nil {
 		return nil, err
 	}

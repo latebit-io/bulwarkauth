@@ -19,14 +19,14 @@ import (
 // to restrict potential leaks of boundaries. For example the account model does not contain
 // the password. This sandboxes the information to never be returned.
 type AccountRepository interface {
-	Create(ctx context.Context, email, password string) error
-	Read(ctx context.Context, email string) (*Account, error)
-	Delete(ctx context.Context, email string) error
-	UpdateEmail(ctx context.Context, email, newEmail string) (*Verification, error)
-	UpdatePassword(ctx context.Context, email, newPassword string) error
-	PasswordMatches(ctx context.Context, email, password string) (bool, error)
-	LinkSocial(ctx context.Context, email string, provider SocialProvider) error
-	Verify(ctx context.Context, email string) error
+	Create(ctx context.Context, tenantID, email, password string) error
+	Read(ctx context.Context, tenantID, email string) (*Account, error)
+	Delete(ctx context.Context, tenantID, email string) error
+	UpdateEmail(ctx context.Context, tenantID, email, newEmail string) (*Verification, error)
+	UpdatePassword(ctx context.Context, tenantID, email, newPassword string) error
+	PasswordMatches(ctx context.Context, tenantID, email, password string) (bool, error)
+	LinkSocial(ctx context.Context, tenantID, email string, provider SocialProvider) error
+	Verify(ctx context.Context, tenantID, email string) error
 }
 
 const (
@@ -43,7 +43,7 @@ type MongodbAccountRepository struct {
 func NewMongodbAccountRepository(db *mongo.Database, encryption encryption.Encryption) *MongodbAccountRepository {
 	collection := db.Collection(accountCollection)
 	_, err := collection.Indexes().CreateOne(context.Background(), mongo.IndexModel{
-		Keys:    bson.D{{Key: "email", Value: 1}},
+		Keys:    bson.D{{Key: "email", Value: 1}, {Key: "tenantId", Value: 1}},
 		Options: options.Index().SetUnique(true),
 	})
 	if err != nil {
@@ -56,7 +56,7 @@ func NewMongodbAccountRepository(db *mongo.Database, encryption encryption.Encry
 }
 
 // Create will create a new account
-func (a MongodbAccountRepository) Create(ctx context.Context, email, password string) error {
+func (a MongodbAccountRepository) Create(ctx context.Context, tenantID, email, password string) error {
 	var errorMessages []string
 	if email == "" {
 		errorMessages = append(errorMessages, "email is required")
@@ -83,6 +83,7 @@ func (a MongodbAccountRepository) Create(ctx context.Context, email, password st
 	_, err = collection.InsertOne(ctx,
 		bson.D{
 			{Key: "id", Value: uuid.New().String()},
+			{Key: "tenantId", Value: tenantID},
 			{Key: "email", Value: email},
 			{Key: "password", Value: hashed},
 			{Key: "isVerified", Value: false},
@@ -106,9 +107,9 @@ func (a MongodbAccountRepository) Create(ctx context.Context, email, password st
 }
 
 // Read will retrieve an account by email
-func (a MongodbAccountRepository) Read(ctx context.Context, email string) (*Account, error) {
+func (a MongodbAccountRepository) Read(ctx context.Context, tenantID, email string) (*Account, error) {
 	collection := a.db.Collection(accountCollection)
-	result := collection.FindOne(ctx, bson.D{{Key: "email", Value: email}})
+	result := collection.FindOne(ctx, bson.D{{Key: "tenantId", Value: tenantID}, {Key: "email", Value: email}})
 	var account Account
 	err := result.Decode(&account)
 	if err != nil {
@@ -121,9 +122,9 @@ func (a MongodbAccountRepository) Read(ctx context.Context, email string) (*Acco
 }
 
 // Delete will soft delete the account by marking it as deleted
-func (a MongodbAccountRepository) Delete(ctx context.Context, email string) error {
+func (a MongodbAccountRepository) Delete(ctx context.Context, tenantID, email string) error {
 	collection := a.db.Collection(accountCollection)
-	result, err := collection.UpdateOne(ctx, bson.D{{Key: "email", Value: email}}, bson.D{{Key: "$set",
+	result, err := collection.UpdateOne(ctx, bson.D{{Key: "email", Value: email}, {Key: "tenantId", Value: tenantID}}, bson.D{{Key: "$set",
 		Value: bson.D{{Key: "isDeleted", Value: true}, {Key: "modified", Value: time.Now()}}}})
 	if err != nil {
 		return err
@@ -136,10 +137,10 @@ func (a MongodbAccountRepository) Delete(ctx context.Context, email string) erro
 }
 
 // UpdateEmail will change an accounts email
-func (a MongodbAccountRepository) UpdateEmail(ctx context.Context, email, newEmail string) (*Verification, error) {
+func (a MongodbAccountRepository) UpdateEmail(ctx context.Context, tenantID, email, newEmail string) (*Verification, error) {
 	collection := a.db.Collection(accountCollection)
 	verificationToken := uuid.New()
-	result, err := collection.UpdateOne(ctx, bson.D{{Key: "email", Value: email}}, bson.D{{Key: "$set",
+	result, err := collection.UpdateOne(ctx, bson.D{{Key: "email", Value: email}, {Key: "tenantId", Value: tenantID}}, bson.D{{Key: "$set",
 		Value: bson.D{{Key: "email", Value: newEmail}, {Key: "verificationToken", Value: verificationToken.String()}, {Key: "isVerified", Value: false},
 			{Key: "modified", Value: time.Now()}}}})
 
@@ -155,13 +156,13 @@ func (a MongodbAccountRepository) UpdateEmail(ctx context.Context, email, newEma
 }
 
 // UpdatePassword will change an accounts password
-func (a MongodbAccountRepository) UpdatePassword(ctx context.Context, email, newPassword string) error {
+func (a MongodbAccountRepository) UpdatePassword(ctx context.Context, tenantID, email, newPassword string) error {
 	collection := a.db.Collection(accountCollection)
 	hashed, err := a.encryption.Encrypt(newPassword)
 	if err != nil {
 		return err
 	}
-	result, err := collection.UpdateOne(ctx, bson.D{{Key: "email", Value: email}}, bson.D{{Key: "$set",
+	result, err := collection.UpdateOne(ctx, bson.D{{Key: "email", Value: email}, {Key: "tenantId", Value: tenantID}}, bson.D{{Key: "$set",
 		Value: bson.D{{Key: "password", Value: hashed}, {Key: "modified", Value: time.Now()}}}})
 	if err != nil {
 		return err
@@ -173,9 +174,9 @@ func (a MongodbAccountRepository) UpdatePassword(ctx context.Context, email, new
 }
 
 // Verify will verify account and activate it
-func (a MongodbAccountRepository) Verify(ctx context.Context, email string) error {
+func (a MongodbAccountRepository) Verify(ctx context.Context, tenantID, email string) error {
 	collection := a.db.Collection(accountCollection)
-	result, err := collection.UpdateOne(ctx, bson.D{{Key: "email", Value: email}}, bson.D{{Key: "$set",
+	result, err := collection.UpdateOne(ctx, bson.D{{Key: "email", Value: email}, {Key: "tenantId", Value: tenantID}}, bson.D{{Key: "$set",
 		Value: bson.D{{Key: "verificationToken", Value: ""}, {Key: "isVerified", Value: true}, {Key: "isEnabled", Value: true},
 			{Key: "modified", Value: time.Now()}}}})
 	if err != nil {
@@ -188,9 +189,9 @@ func (a MongodbAccountRepository) Verify(ctx context.Context, email string) erro
 }
 
 // PasswordMatches check if the password is correct
-func (a MongodbAccountRepository) PasswordMatches(ctx context.Context, email, password string) (bool, error) {
+func (a MongodbAccountRepository) PasswordMatches(ctx context.Context, tenantID, email, password string) (bool, error) {
 	collection := a.db.Collection(accountCollection)
-	result := collection.FindOne(ctx, bson.D{{Key: "email", Value: email}})
+	result := collection.FindOne(ctx, bson.D{{Key: "email", Value: email}, {Key: "tenantId", Value: tenantID}})
 
 	var r bson.M
 	err := result.Decode(&r)
@@ -214,9 +215,9 @@ func (a MongodbAccountRepository) PasswordMatches(ctx context.Context, email, pa
 	return true, nil
 }
 
-func (a MongodbAccountRepository) LinkSocial(ctx context.Context, email string, provider SocialProvider) error {
+func (a MongodbAccountRepository) LinkSocial(ctx context.Context, tenantID, email string, provider SocialProvider) error {
 	collection := a.db.Collection(accountCollection)
-	result, err := collection.UpdateOne(ctx, bson.D{{Key: "email", Value: email}}, bson.D{{Key: "$push", Value: bson.D{{Key: "socialProviders", Value: provider}}}})
+	result, err := collection.UpdateOne(ctx, bson.D{{Key: "email", Value: email}, {Key: "tenantId", Value: tenantID}}, bson.D{{Key: "$push", Value: bson.D{{Key: "socialProviders", Value: provider}}}})
 	if err != nil {
 		return err
 	}

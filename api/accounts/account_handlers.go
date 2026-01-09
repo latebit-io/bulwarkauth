@@ -14,41 +14,49 @@ type AccountHandler struct {
 }
 
 type NewAccountRequest struct {
+	TenantID string `json:"tenantID"`
 	Email    string `json:"email"`
 	Password string `json:"password"`
 }
 
 type VerifyAccountRequest struct {
-	Email string `json:"email"`
-	Token string `json:"token"`
+	TenantID string `json:"tenantID"`
+	Email    string `json:"email"`
+	Token    string `json:"token"`
 }
 
 type ResendVerificationRequest struct {
-	Email string `json:"email"`
+	TenantID string `json:"tenantID"`
+	Email    string `json:"email"`
 }
 
 type ForgotPasswordRequest struct {
-	Email string `json:"email"`
+	TenantID string `json:"tenantID"`
+	Email    string `json:"email"`
 }
 
 type ResetPasswordRequest struct {
+	TenantID string `json:"tenantID"`
 	Email    string `json:"email"`
 	Token    string `json:"token"`
 	Password string `json:"password"`
 }
 
 type DeleteAccountRequest struct {
+	TenantID    string `json:"tenantID"`
 	Email       string `json:"email"`
 	AccessToken string `json:"accessToken"`
 }
 
 type ChangePasswordRequest struct {
+	TenantID    string `json:"tenantID"`
 	Email       string `json:"email"`
 	Password    string `json:"newPassword"`
 	AccessToken string `json:"accessToken"`
 }
 
 type UpdateEmailRequest struct {
+	TenantID    string `json:"tenantID"`
 	Email       string `json:"email"`
 	AccessToken string `json:"accessToken"`
 }
@@ -67,7 +75,7 @@ func (ah AccountHandler) Register(c echo.Context) error {
 	}
 
 	ctx := c.Request().Context()
-	err = ah.accounts.Register(ctx, newAccountRequest.Email, newAccountRequest.Password)
+	err = ah.accounts.Register(ctx, newAccountRequest.TenantID, newAccountRequest.Email, newAccountRequest.Password)
 	if err != nil {
 		var accountDuplicateError accounts.AccountDuplicateError
 		duplicate := errors.As(err, &accountDuplicateError)
@@ -95,7 +103,7 @@ func (ah AccountHandler) Verify(c echo.Context) error {
 		httpError := problem.NewBadRequest(err)
 		return echo.NewHTTPError(httpError.Status, httpError)
 	}
-	err = ah.accounts.Verify(c.Request().Context(), verifyAccountRequest.Email, verifyAccountRequest.Token)
+	err = ah.accounts.Verify(c.Request().Context(), verifyAccountRequest.TenantID, verifyAccountRequest.Email, verifyAccountRequest.Token)
 	var accountNotFoundError accounts.AccountNotFoundError
 	notFound := errors.As(err, &accountNotFoundError)
 	if notFound {
@@ -134,7 +142,7 @@ func (ah AccountHandler) Resend(c echo.Context) error {
 		return echo.NewHTTPError(httpError.Status, httpError)
 	}
 
-	err = ah.accounts.Resend(c.Request().Context(), resendVerificationRequest.Email)
+	err = ah.accounts.Resend(c.Request().Context(), resendVerificationRequest.TenantID, resendVerificationRequest.Email)
 	if err == nil {
 		return c.NoContent(http.StatusNoContent)
 	}
@@ -173,7 +181,7 @@ func (ah AccountHandler) Forgot(c echo.Context) error {
 		return echo.NewHTTPError(httpError.Status, httpError)
 	}
 
-	err = ah.accounts.Forgot(c.Request().Context(), newForgotPasswordRequest.Email)
+	err = ah.accounts.Forgot(c.Request().Context(), newForgotPasswordRequest.TenantID, newForgotPasswordRequest.Email)
 	if err != nil {
 		httpError := problem.NewServerError(err)
 		return echo.NewHTTPError(httpError.Status, httpError)
@@ -190,7 +198,7 @@ func (ah AccountHandler) ForgotPassword(c echo.Context) error {
 		return echo.NewHTTPError(httpError.Status, httpError)
 	}
 
-	err = ah.accounts.ForgotPassword(c.Request().Context(), resetPasswordRequest.Email, resetPasswordRequest.Password, resetPasswordRequest.Token)
+	err = ah.accounts.ForgotPassword(c.Request().Context(), resetPasswordRequest.TenantID, resetPasswordRequest.Email, resetPasswordRequest.Password, resetPasswordRequest.Token)
 	if err != nil {
 		httpError := problem.NewBadRequest(err)
 		return echo.NewHTTPError(httpError.Status, httpError)
@@ -207,7 +215,7 @@ func (ah AccountHandler) DeleteAccount(c echo.Context) error {
 		return echo.NewHTTPError(httpError.Status, httpError)
 	}
 
-	err = ah.accounts.Delete(c.Request().Context(), deleteAccountRequest.Email, deleteAccountRequest.AccessToken)
+	err = ah.accounts.Delete(c.Request().Context(), deleteAccountRequest.TenantID, deleteAccountRequest.Email, deleteAccountRequest.AccessToken)
 	if err != nil {
 		httpError := problem.NewServerError(err)
 		return echo.NewHTTPError(httpError.Status, httpError)
@@ -225,7 +233,7 @@ func (ah AccountHandler) ChangePassword(c echo.Context) error {
 		return echo.NewHTTPError(httpError.Status, httpError)
 	}
 
-	err = ah.accounts.UpdatePassword(c.Request().Context(), changePasswordRequest.Email, changePasswordRequest.Password,
+	err = ah.accounts.UpdatePassword(c.Request().Context(), changePasswordRequest.TenantID, changePasswordRequest.Email, changePasswordRequest.Password,
 		changePasswordRequest.AccessToken)
 
 	if err != nil {
@@ -244,7 +252,7 @@ func (ah AccountHandler) UpdateEmail(c echo.Context) error {
 		return echo.NewHTTPError(httpError.Status, httpError)
 	}
 
-	err = ah.accounts.UpdateEmail(c.Request().Context(), updateEmailRequest.Email, updateEmailRequest.AccessToken)
+	err = ah.accounts.UpdateEmail(c.Request().Context(), updateEmailRequest.TenantID, updateEmailRequest.Email, updateEmailRequest.AccessToken)
 	if err != nil {
 		httpError := problem.NewServerError(err)
 		return echo.NewHTTPError(httpError.Status, httpError)

@@ -72,7 +72,7 @@ func (gv *GoogleValidator) ValidateToken(ctx context.Context, ID string) (*Socia
 
 type SocialService interface {
 	AddValidator(validator Validator)
-	Authenticate(context context.Context, idToken, clientID, provider string) (*authentication.Authenticated, error)
+	Authenticate(context context.Context, tenantID, idToken, clientID, provider string) (*authentication.Authenticated, error)
 }
 
 type DefaultSocialService struct {
@@ -98,7 +98,7 @@ func (s *DefaultSocialService) AddValidator(validator Validator) {
 	s.validators[validator.Name()] = validator
 }
 
-func (s *DefaultSocialService) Authenticate(ctx context.Context, idToken, clientID, provider string) (*authentication.Authenticated, error) {
+func (s *DefaultSocialService) Authenticate(ctx context.Context, tenantID, idToken, clientID, provider string) (*authentication.Authenticated, error) {
 	validator, ok := s.validators[provider]
 	if !ok {
 		return nil, fmt.Errorf("no validator found for provider %s", provider)
@@ -112,11 +112,11 @@ func (s *DefaultSocialService) Authenticate(ctx context.Context, idToken, client
 		return nil, fmt.Errorf("no email found in ID token %s", provider)
 	}
 
-	account, err := s.accountRepo.Read(ctx, social.Email)
+	account, err := s.accountRepo.Read(ctx, tenantID, social.Email)
 	var notFound accounts.AccountNotFoundError
 	if errors.As(err, &notFound) {
 		randomPassword := uuid.New().String()
-		err = s.accountService.Register(ctx, social.Email, randomPassword)
+		err = s.accountService.Register(ctx, tenantID, social.Email, randomPassword)
 		if err != nil {
 			return nil, err
 		}
@@ -125,7 +125,7 @@ func (s *DefaultSocialService) Authenticate(ctx context.Context, idToken, client
 		return nil, err
 	}
 
-	err = s.accountRepo.LinkSocial(ctx, social.Email, accounts.SocialProvider{
+	err = s.accountRepo.LinkSocial(ctx, tenantID, social.Email, accounts.SocialProvider{
 		Name:     social.Provider,
 		SocialId: social.ID,
 	})
@@ -134,11 +134,11 @@ func (s *DefaultSocialService) Authenticate(ctx context.Context, idToken, client
 		return nil, err
 	}
 
-	accessToken, err := s.token.CreateAccessToken(ctx, account.Email, clientID, account.Roles)
+	accessToken, err := s.token.CreateAccessToken(ctx, tenantID, account.Email, clientID, account.Roles)
 	if err != nil {
 		return nil, err
 	}
-	refreshToken, err := s.token.CreateRefreshToken(ctx, account.Email, clientID)
+	refreshToken, err := s.token.CreateRefreshToken(ctx, tenantID, account.Email, clientID)
 	if err != nil {
 		return nil, err
 	}

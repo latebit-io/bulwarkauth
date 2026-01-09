@@ -12,20 +12,20 @@ import (
 
 // AccountService contract for all account related actions
 type AccountService interface {
-	Register(ctx context.Context, email string, password string) error
-	Verify(ctx context.Context, email string, verificationCode string) error
-	Resend(ctx context.Context, email string) error
-	UpdateEmail(ctx context.Context, email string, accessToken string) error
-	Delete(ctx context.Context, email string, accessToken string) error
-	UpdatePassword(ctx context.Context, email, newPassword, accessToken string) error
-	Forgot(ctx context.Context, email string) error
-	ForgotPassword(ctx context.Context, email, newPassword, forgotToken string) error
+	Register(ctx context.Context, tenantID, email string, password string) error
+	Verify(ctx context.Context, tenantID, email string, verificationCode string) error
+	Resend(ctx context.Context, tenantID, email string) error
+	UpdateEmail(ctx context.Context, tenantID, email string, accessToken string) error
+	Delete(ctx context.Context, tenantID, email string, accessToken string) error
+	UpdatePassword(ctx context.Context, tenantID, email, newPassword, accessToken string) error
+	Forgot(ctx context.Context, tenantID, email string) error
+	ForgotPassword(ctx context.Context, tenantID, email, newPassword, forgotToken string) error
 }
 
 type EmailService interface {
-	SendVerificationEmail(ctx context.Context, email, verificationToken string) error
-	SendForgotPasswordEmail(ctx context.Context, email, forgotToken string) error
-	SendMagicLinkEmail(ctx context.Context, email, code string) error
+	SendVerificationEmail(ctx context.Context, tenantID, email, verificationToken string) error
+	SendForgotPasswordEmail(ctx context.Context, tenantID, email, forgotToken string) error
+	SendMagicLinkEmail(ctx context.Context, tenantID, email, code string) error
 }
 
 type TxManager interface {
@@ -37,11 +37,13 @@ type Tokenizer interface {
 }
 
 type Verification struct {
-	Token string
-	Email string
+	TenantID string
+	Token    string
+	Email    string
 }
 
 type Account struct {
+	TenantID          string           `bson:"tenantId" json:"tenantId"`
 	Email             string           `bson:"email"`
 	IsVerified        bool             `bson:"isVerified"`
 	VerificationToken string           `bson:"verificationToken"`
@@ -78,17 +80,17 @@ func NewDefaultAccountService(accountRepository AccountRepository, forgotReposit
 }
 
 // Resend will send the verification email if the account has not yet been verified
-func (a DefaultAccountService) Resend(ctx context.Context, email string) error {
+func (a DefaultAccountService) Resend(ctx context.Context, tenantID, email string) error {
 	err := utils.ValidateEmail(email)
 	if err != nil {
 		return err
 	}
-	account, err := a.accountRepository.Read(ctx, email)
+	account, err := a.accountRepository.Read(ctx, tenantID, email)
 	if err != nil {
 		return err
 	}
 	if !account.IsVerified {
-		return a.emailService.SendVerificationEmail(ctx, email, account.VerificationToken)
+		return a.emailService.SendVerificationEmail(ctx, tenantID, email, account.VerificationToken)
 	}
 
 	return VerificationError{
@@ -97,7 +99,7 @@ func (a DefaultAccountService) Resend(ctx context.Context, email string) error {
 }
 
 // ForgotPassword will reset a users password if supplied with a valid token
-func (a DefaultAccountService) ForgotPassword(ctx context.Context, email, newPassword, forgotToken string) error {
+func (a DefaultAccountService) ForgotPassword(ctx context.Context, tenantID, email, newPassword, forgotToken string) error {
 	err := utils.ValidateEmail(email)
 	if err != nil {
 		return err
@@ -106,7 +108,7 @@ func (a DefaultAccountService) ForgotPassword(ctx context.Context, email, newPas
 	if err != nil {
 		return err
 	}
-	forgot, err := a.forgotRepository.Read(ctx, email)
+	forgot, err := a.forgotRepository.Read(ctx, tenantID, email)
 	if err != nil {
 		return err
 	}
@@ -115,11 +117,11 @@ func (a DefaultAccountService) ForgotPassword(ctx context.Context, email, newPas
 	}
 
 	return a.txManager.WithTransaction(ctx, func(txCtx mongo.SessionContext) error {
-		err = a.accountRepository.UpdatePassword(ctx, email, newPassword)
+		err = a.accountRepository.UpdatePassword(ctx, tenantID, email, newPassword)
 		if err != nil {
 			return err
 		}
-		err = a.forgotRepository.Delete(ctx, email)
+		err = a.forgotRepository.Delete(ctx, tenantID, email)
 		if err != nil {
 			return err
 		}
@@ -129,22 +131,22 @@ func (a DefaultAccountService) ForgotPassword(ctx context.Context, email, newPas
 
 // Forgot will send a forgot email using the forgot template te the user with a link to reset their password
 // the service can be configured with a endpoint that will call the forgot password bulwark api
-func (a DefaultAccountService) Forgot(ctx context.Context, email string) error {
+func (a DefaultAccountService) Forgot(ctx context.Context, tenantID, email string) error {
 	err := utils.ValidateEmail(email)
 	if err != nil {
 		return err
 	}
-	err = a.forgotRepository.Create(ctx, email)
+	err = a.forgotRepository.Create(ctx, tenantID, email)
 	if err != nil {
 		return err
 	}
 
-	forgot, err := a.forgotRepository.Read(ctx, email)
+	forgot, err := a.forgotRepository.Read(ctx, tenantID, email)
 	if err != nil {
 		return err
 	}
 
-	err = a.emailService.SendForgotPasswordEmail(ctx, email, forgot.Token)
+	err = a.emailService.SendForgotPasswordEmail(ctx, tenantID, email, forgot.Token)
 	if err != nil {
 		return err
 	}
@@ -153,7 +155,7 @@ func (a DefaultAccountService) Forgot(ctx context.Context, email string) error {
 }
 
 // Register will create a new user if the email is available
-func (a DefaultAccountService) Register(ctx context.Context, email string, password string) error {
+func (a DefaultAccountService) Register(ctx context.Context, tenantID, email string, password string) error {
 	err := utils.ValidateEmail(email)
 	if err != nil {
 		return err
@@ -162,20 +164,20 @@ func (a DefaultAccountService) Register(ctx context.Context, email string, passw
 	if err != nil {
 		return err
 	}
-	err = a.accountRepository.Create(ctx, email, password)
+	err = a.accountRepository.Create(ctx, tenantID, email, password)
 	if err != nil {
 		return err
 	}
-	account, err := a.accountRepository.Read(ctx, email)
+	account, err := a.accountRepository.Read(ctx, tenantID, email)
 	if err != nil {
 		return err
 	}
-	return a.emailService.SendVerificationEmail(ctx, email, account.VerificationToken)
+	return a.emailService.SendVerificationEmail(ctx, tenantID, email, account.VerificationToken)
 }
 
 // Verify when an account ot email is changed an account will need to be verified
-func (a DefaultAccountService) Verify(ctx context.Context, email string, verificationCode string) error {
-	account, err := a.accountRepository.Read(ctx, email)
+func (a DefaultAccountService) Verify(ctx context.Context, tenantID, email string, verificationCode string) error {
+	account, err := a.accountRepository.Read(ctx, tenantID, email)
 	if err != nil {
 		return err
 	}
@@ -186,11 +188,11 @@ func (a DefaultAccountService) Verify(ctx context.Context, email string, verific
 		}
 	}
 
-	return a.accountRepository.Verify(ctx, email)
+	return a.accountRepository.Verify(ctx, tenantID, email)
 }
 
 // UpdateEmail updates an accounts email must supply a valid accessToken
-func (a DefaultAccountService) UpdateEmail(ctx context.Context, email string, accessToken string) error {
+func (a DefaultAccountService) UpdateEmail(ctx context.Context, tenantID, email string, accessToken string) error {
 	err := utils.ValidateEmail(email)
 	if err != nil {
 		return err
@@ -199,12 +201,12 @@ func (a DefaultAccountService) UpdateEmail(ctx context.Context, email string, ac
 	if err != nil {
 		return err
 	}
-	newVerification, err := a.accountRepository.UpdateEmail(ctx, token.Subject, email)
+	newVerification, err := a.accountRepository.UpdateEmail(ctx, tenantID, token.Subject, email)
 	if err != nil {
 		return err
 	}
 
-	err = a.emailService.SendVerificationEmail(ctx, email, newVerification.Token)
+	err = a.emailService.SendVerificationEmail(ctx, tenantID, email, newVerification.Token)
 	if err != nil {
 		return err
 	}
@@ -212,7 +214,7 @@ func (a DefaultAccountService) UpdateEmail(ctx context.Context, email string, ac
 	return nil
 }
 
-func (a DefaultAccountService) UpdatePassword(ctx context.Context, email, newPassword, accessToken string) error {
+func (a DefaultAccountService) UpdatePassword(ctx context.Context, tenantID, email, newPassword, accessToken string) error {
 	err := utils.ValidateEmail(email)
 	if err != nil {
 		return err
@@ -230,14 +232,14 @@ func (a DefaultAccountService) UpdatePassword(ctx context.Context, email, newPas
 		return errors.New("token invalid")
 	}
 
-	if err = a.accountRepository.UpdatePassword(ctx, email, newPassword); err != nil {
+	if err = a.accountRepository.UpdatePassword(ctx, tenantID, email, newPassword); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (a DefaultAccountService) Delete(ctx context.Context, email string, accessToken string) error {
+func (a DefaultAccountService) Delete(ctx context.Context, tenantID, email string, accessToken string) error {
 	err := utils.ValidateEmail(email)
 	if err != nil {
 		return err
@@ -249,7 +251,7 @@ func (a DefaultAccountService) Delete(ctx context.Context, email string, accessT
 	if claims.Subject != email {
 		return errors.New("token invalid")
 	}
-	err = a.accountRepository.Delete(ctx, email)
+	err = a.accountRepository.Delete(ctx, tenantID, email)
 	if err != nil {
 		return err
 	}

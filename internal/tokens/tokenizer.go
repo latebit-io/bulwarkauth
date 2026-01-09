@@ -14,8 +14,8 @@ import (
 )
 
 type Tokenizer interface {
-	CreateAccessToken(ctx context.Context, email string, clientID string, rbac []string) (string, error)
-	CreateRefreshToken(ctx context.Context, email string, clientID string) (string, error)
+	CreateAccessToken(ctx context.Context, tenantID, email string, clientID string, rbac []string) (string, error)
+	CreateRefreshToken(ctx context.Context, tenantID, email string, clientID string) (string, error)
 	ValidateRefreshToken(ctx context.Context, token string) (*RefreshTokenClaims, error)
 	ValidateAccessToken(ctx context.Context, token string) (*AccessTokenClaims, error)
 }
@@ -32,12 +32,14 @@ type DefaultTokenizer struct {
 }
 
 type AccessTokenClaims struct {
+	TenantID string   `json:"tenantId"`
 	ClientID string   `json:"clientId"`
 	Roles    []string `json:"roles"`
 	jwt.RegisteredClaims
 }
 
 type RefreshTokenClaims struct {
+	TenantID string `json:"tenantId"`
 	ClientID string `json:"clientId"`
 	jwt.RegisteredClaims
 }
@@ -63,7 +65,7 @@ func NewDefaultTokenizer(name, issuer, audience string, refreshTokenExpInSec int
 	}
 }
 
-func (d DefaultTokenizer) CreateAccessToken(ctx context.Context, email, clientID string, rbac []string) (string, error) {
+func (d DefaultTokenizer) CreateAccessToken(ctx context.Context, tenantID, email, clientID string, rbac []string) (string, error) {
 	key, err := d.signingKeyService.LatestKey(ctx)
 	if err != nil {
 		return "", err
@@ -74,6 +76,7 @@ func (d DefaultTokenizer) CreateAccessToken(ctx context.Context, email, clientID
 	claims := AccessTokenClaims{
 		Roles:    rbac,
 		ClientID: clientID,
+		TenantID: tenantID,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ID:        id.String(),
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Second * time.Duration(d.accessTokenExpInSec))),
@@ -101,7 +104,7 @@ func (d DefaultTokenizer) CreateAccessToken(ctx context.Context, email, clientID
 	return token, nil
 }
 
-func (d DefaultTokenizer) CreateRefreshToken(ctx context.Context, email, clientID string) (string, error) {
+func (d DefaultTokenizer) CreateRefreshToken(ctx context.Context, tenantID, email, clientID string) (string, error) {
 	key, err := d.signingKeyService.LatestKey(ctx)
 	if err != nil {
 		return "", err
@@ -110,6 +113,7 @@ func (d DefaultTokenizer) CreateRefreshToken(ctx context.Context, email, clientI
 	id := uuid.New()
 
 	claims := RefreshTokenClaims{
+		TenantID: tenantID,
 		ClientID: clientID,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ID:        id.String(),
