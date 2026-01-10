@@ -152,7 +152,7 @@ func (a MongodbAccountRepository) UpdateEmail(ctx context.Context, tenantID, ema
 		return nil, AccountNotFoundError{Value: email}
 	}
 
-	return &Verification{Email: newEmail, Token: verificationToken.String()}, nil
+	return &Verification{TenantID: tenantID, Email: newEmail, Token: verificationToken.String()}, nil
 }
 
 // UpdatePassword will change an accounts password

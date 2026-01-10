@@ -10,7 +10,7 @@ import (
 )
 
 type LogonCode struct {
-	TenantID string    `bson:"tenantID"`
+	TenantID string    `bson:"tenantId"`
 	Email    string    `bson:"email"`
 	Code     string    `bson:"code"`
 	Expires  time.Time `bson:"expires"`
