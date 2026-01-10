@@ -14,6 +14,7 @@ const (
 )
 
 type FailedAttempt struct {
+	TenantID    string    `bson:"tenantId"`
 	Email       string    `bson:"email"`
 	Count       int       `bson:"count"`
 	LockedUntil time.Time `bson:"lockedUntil"`
@@ -21,11 +22,11 @@ type FailedAttempt struct {
 }
 
 type FailedAttemptRepository interface {
-	Get(ctx context.Context, email string) (*FailedAttempt, error)
-	Increment(ctx context.Context, email string) error
-	Lock(ctx context.Context, email string, duration time.Duration) error
-	Clear(ctx context.Context, email string) error
-	IncrementAndLockIfNeeded(ctx context.Context, email string, maxAttempts int, lockDuration time.Duration) (bool, error)
+	Get(ctx context.Context, tenantID, email string) (*FailedAttempt, error)
+	Increment(ctx context.Context, tenantID, email string) error
+	Lock(ctx context.Context, tenantID, email string, duration time.Duration) error
+	Clear(ctx context.Context, tenantID, email string) error
+	IncrementAndLockIfNeeded(ctx context.Context, tenantID, email string, maxAttempts int, lockDuration time.Duration) (bool, error)
 }
 
 type MongoFailedAttemptRepository struct {
@@ -37,7 +38,7 @@ func NewMongoFailedAttemptRepository(db *mongo.Database) FailedAttemptRepository
 
 	// Create index on email
 	_, _ = collection.Indexes().CreateOne(context.Background(), mongo.IndexModel{
-		Keys:    bson.D{{Key: "email", Value: 1}},
+		Keys:    bson.D{{Key: "tenantId", Value: 1}, {Key: "email", Value: 1}},
 		Options: options.Index().SetUnique(true),
 	})
 
@@ -52,9 +53,9 @@ func NewMongoFailedAttemptRepository(db *mongo.Database) FailedAttemptRepository
 	}
 }
 
-func (r *MongoFailedAttemptRepository) Get(ctx context.Context, email string) (*FailedAttempt, error) {
+func (r *MongoFailedAttemptRepository) Get(ctx context.Context, tenantID, email string) (*FailedAttempt, error) {
 	var attempt FailedAttempt
-	err := r.collection.FindOne(ctx, bson.M{"email": email}).Decode(&attempt)
+	err := r.collection.FindOne(ctx, bson.M{"tenantId": tenantID, "email": email}).Decode(&attempt)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
 			return nil, nil
@@ -64,22 +65,23 @@ func (r *MongoFailedAttemptRepository) Get(ctx context.Context, email string) (*
 	return &attempt, nil
 }
 
-func (r *MongoFailedAttemptRepository) Increment(ctx context.Context, email string) error {
+func (r *MongoFailedAttemptRepository) Increment(ctx context.Context, tenantID, email string) error {
 	update := bson.M{
 		"$inc": bson.M{"count": 1},
 		"$set": bson.M{"updatedAt": time.Now()},
 		"$setOnInsert": bson.M{
+			"tenantId":    tenantID,
 			"email":       email,
 			"lockedUntil": time.Time{},
 		},
 	}
 
 	opts := options.Update().SetUpsert(true)
-	_, err := r.collection.UpdateOne(ctx, bson.M{"email": email}, update, opts)
+	_, err := r.collection.UpdateOne(ctx, bson.M{"tenantId": tenantID, "email": email}, update, opts)
 	return err
 }
 
-func (r *MongoFailedAttemptRepository) Lock(ctx context.Context, email string, duration time.Duration) error {
+func (r *MongoFailedAttemptRepository) Lock(ctx context.Context, tenantID, email string, duration time.Duration) error {
 	lockedUntil := time.Now().Add(duration)
 	update := bson.M{
 		"$set": bson.M{
@@ -88,18 +90,18 @@ func (r *MongoFailedAttemptRepository) Lock(ctx context.Context, email string, d
 		},
 	}
 
-	_, err := r.collection.UpdateOne(ctx, bson.M{"email": email}, update)
+	_, err := r.collection.UpdateOne(ctx, bson.M{"tenantId": tenantID, "email": email}, update)
 	return err
 }
 
-func (r *MongoFailedAttemptRepository) Clear(ctx context.Context, email string) error {
-	_, err := r.collection.DeleteOne(ctx, bson.M{"email": email})
+func (r *MongoFailedAttemptRepository) Clear(ctx context.Context, tenantID, email string) error {
+	_, err := r.collection.DeleteOne(ctx, bson.M{"tenantId": tenantID, "email": email})
 	return err
 }
 
 // IncrementAndLockIfNeeded atomically increments the failed attempt count and locks the account if the threshold is reached.
 // Returns true if the account was locked, false otherwise.
-func (r *MongoFailedAttemptRepository) IncrementAndLockIfNeeded(ctx context.Context, email string, maxAttempts int, lockDuration time.Duration) (bool, error) {
+func (r *MongoFailedAttemptRepository) IncrementAndLockIfNeeded(ctx context.Context, tenantID, email string, maxAttempts int, lockDuration time.Duration) (bool, error) {
 	now := time.Now()
 	lockedUntil := now.Add(lockDuration)
 
@@ -108,6 +110,7 @@ func (r *MongoFailedAttemptRepository) IncrementAndLockIfNeeded(ctx context.Cont
 		"$inc": bson.M{"count": 1},
 		"$set": bson.M{"updatedAt": now},
 		"$setOnInsert": bson.M{
+			"tenantId":    tenantID,
 			"email":       email,
 			"lockedUntil": time.Time{},
 		},
@@ -118,7 +121,7 @@ func (r *MongoFailedAttemptRepository) IncrementAndLockIfNeeded(ctx context.Cont
 		SetReturnDocument(options.After)
 
 	var result FailedAttempt
-	err := r.collection.FindOneAndUpdate(ctx, bson.M{"email": email}, update, opts).Decode(&result)
+	err := r.collection.FindOneAndUpdate(ctx, bson.M{"tenantId": tenantID, "email": email}, update, opts).Decode(&result)
 	if err != nil {
 		return false, err
 	}
@@ -132,7 +135,7 @@ func (r *MongoFailedAttemptRepository) IncrementAndLockIfNeeded(ctx context.Cont
 			},
 		}
 
-		_, err := r.collection.UpdateOne(ctx, bson.M{"email": email}, lockUpdate)
+		_, err := r.collection.UpdateOne(ctx, bson.M{"tenantId": tenantID, "email": email}, lockUpdate)
 		if err != nil {
 			return false, err
 		}

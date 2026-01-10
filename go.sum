@@ -26,6 +26,12 @@ github.com/labstack/gommon v0.4.2 h1:F8qTUNXgG1+6WQmqoUWnz8WiEU60mXVVw0P4ht1WRA0
 github.com/labstack/gommon v0.4.2/go.mod h1:QlUFxVM+SNXhDL/Z7YhocGIBYOiwB0mXm1+1bAPHPyU=
 github.com/latebit-io/bulwark-auth-guard v0.1.0 h1:FJHN2s6JxXWv7ovt9cvKHRAHj1lPKe1Oi8kSztsxZDo=
 github.com/latebit-io/bulwark-auth-guard v0.1.0/go.mod h1:dVDn7DENBkH48+q6Sp6uFtp2KEQUENypZJ0H4P9DnaY=
+github.com/latebit-io/bulwark-auth-guard v0.1.1-0.20260110192008-5298ed9389e8 h1:HSarF6H0HvfOTIaHTXrT6HLZtcdsI/8MnmqxgrNFiXs=
+github.com/latebit-io/bulwark-auth-guard v0.1.1-0.20260110192008-5298ed9389e8/go.mod h1:8wyGFfFuUAEIFK+oo3P5jMpbnF0fQFNs0xKZ8ZxPaq8=
+github.com/latebit-io/bulwark-auth-guard v0.2.0 h1:YK0xvk7xoQVILOwoRbE6deBGcoNOStG+bAb9+vlwnQs=
+github.com/latebit-io/bulwark-auth-guard v0.2.0/go.mod h1:8wyGFfFuUAEIFK+oo3P5jMpbnF0fQFNs0xKZ8ZxPaq8=
+github.com/latebit-io/bulwark-auth-guard v0.2.1 h1:1VQ57bRVu9/VNUBmJTxSisUSgmrgEHAPucHm1S5Dj34=
+github.com/latebit-io/bulwark-auth-guard v0.2.1/go.mod h1:8wyGFfFuUAEIFK+oo3P5jMpbnF0fQFNs0xKZ8ZxPaq8=
 github.com/latebit-io/go-hog v1.1.1 h1:KPjRV3GBf0PsEIDufj5cXKYLpsJvMrl8jVfgNyrMz/I=
 github.com/latebit-io/go-hog v1.1.1/go.mod h1:lkRNsQHanishAPM4ueJPdjDeNORBXAwuAY0HTHhDekg=
 github.com/mattn/go-colorable v0.1.13 h1:fFA4WZxdEF4tXPZVKMLwD8oUnCTTo08duU7wxecdEvA=

@@ -10,12 +10,16 @@ import (
 )
 
 type AuthenticationRequest struct {
+	TenantID string `json:"tenantId"`
 	Email    string `json:"email"`
 	Password string `json:"password"`
 	ClientID string `json:"clientId"`
 }
 
 func (a AuthenticationRequest) Validate() error {
+	if a.TenantID == "" {
+		return errors.New("tenantId required")
+	}
 	if a.Email == "" {
 		return errors.New("email required")
 	}
@@ -32,23 +36,27 @@ func (a AuthenticationRequest) Validate() error {
 }
 
 type RenewRequest struct {
+	TenantID     string `json:"tenantId"`
 	Email        string `json:"email"`
 	RefreshToken string `json:"refreshToken"`
 }
 
 type AcknowledgeRequest struct {
+	TenantID     string `json:"tenantId"`
 	AccessToken  string `json:"accessToken"`
 	RefreshToken string `json:"refreshToken"`
 }
 
 type RevokeRequest struct {
+	TenantID    string `json:"tenantId"`
 	Email       string `json:"email"`
 	ClientId    string `json:"clientId"`
 	AccessToken string `json:"accessToken"`
 }
 
 type ValidateAccessTokenRequest struct {
-	Token string `json:"token"`
+	TenantID string `json:"tenantId"`
+	Token    string `json:"token"`
 }
 
 type AuthenticationHandler struct {
@@ -73,7 +81,7 @@ func (ah AuthenticationHandler) Authenticate(c echo.Context) error {
 		return echo.NewHTTPError(httpError.Status, httpError)
 	}
 
-	authenticated, err := ah.authentication.Authenticate(c.Request().Context(), newAuthRequest.Email, newAuthRequest.ClientID,
+	authenticated, err := ah.authentication.Authenticate(c.Request().Context(), newAuthRequest.TenantID, newAuthRequest.Email, newAuthRequest.ClientID,
 		newAuthRequest.Password)
 	if err != nil {
 		httpError := problem.NewBadRequest(err)
@@ -91,10 +99,11 @@ func (ah AuthenticationHandler) Acknowledge(c echo.Context) error {
 		return echo.NewHTTPError(httpError.Status, httpError)
 	}
 
-	err = ah.authentication.Acknowledge(c.Request().Context(), authentication.Authenticated{
-		AccessToken:  newAckRequest.AccessToken,
-		RefreshToken: newAckRequest.RefreshToken,
-	})
+	err = ah.authentication.Acknowledge(c.Request().Context(), newAckRequest.TenantID,
+		authentication.Authenticated{
+			AccessToken:  newAckRequest.AccessToken,
+			RefreshToken: newAckRequest.RefreshToken,
+		})
 
 	if err != nil {
 		httpError := problem.NewBadRequest(err)
@@ -112,7 +121,8 @@ func (ah AuthenticationHandler) Renew(c echo.Context) error {
 		return echo.NewHTTPError(httpError.Status, httpError)
 	}
 
-	authenticated, err := ah.authentication.Renew(c.Request().Context(), newRenewRequest.RefreshToken)
+	authenticated, err := ah.authentication.Renew(c.Request().Context(), newRenewRequest.TenantID,
+		newRenewRequest.RefreshToken)
 	if err != nil {
 		httpError := problem.NewBadRequest(err)
 		return echo.NewHTTPError(httpError.Status, httpError)
@@ -128,7 +138,8 @@ func (ah AuthenticationHandler) Revoke(c echo.Context) error {
 		return echo.NewHTTPError(httpError.Status, httpError)
 	}
 
-	err := ah.authentication.Revoke(c.Request().Context(), newRevokeRequest.AccessToken)
+	err := ah.authentication.Revoke(c.Request().Context(), newRevokeRequest.TenantID,
+		newRevokeRequest.AccessToken)
 	if err != nil {
 		httpError := problem.NewBadRequest(err)
 		return echo.NewHTTPError(httpError.Status, httpError)
@@ -144,7 +155,9 @@ func (ah AuthenticationHandler) ValidateAccessToken(c echo.Context) error {
 		return echo.NewHTTPError(httpError.Status, httpError)
 	}
 
-	claims, err := ah.authentication.ValidateAccessToken(c.Request().Context(), validateAccessTokenRequest.Token)
+	claims, err := ah.authentication.ValidateAccessToken(c.Request().Context(),
+		validateAccessTokenRequest.TenantID,
+		validateAccessTokenRequest.Token)
 	if err != nil {
 		httpError := problem.NewBadRequest(err)
 		return echo.NewHTTPError(httpError.Status, httpError)

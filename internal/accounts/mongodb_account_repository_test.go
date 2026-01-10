@@ -15,14 +15,15 @@ import (
 func TestUserRepository_CreateAccount(t *testing.T) {
 	tests := []struct {
 		name        string
+		tenantID    string
 		email       string
 		password    string
 		expectedErr error
 	}{
-		{"Valid User", "test@latebit.io", "password", nil},
-		{"Empty email", "", "password", errors.New("email is required")},
-		{"Empty password", "test@latebit.io", "", errors.New("password is required")},
-		{"Duplicate email", "test@latebit.io", "password", AccountDuplicateError{Value: "test@latebit.io"}},
+		{"Valid User", "tenant1", "test@latebit.io", "password", nil},
+		{"Empty email", "tenant1", "", "password", errors.New("email is required")},
+		{"Empty password", "tenant1", "test@latebit.io", "", errors.New("password is required")},
+		{"Duplicate email", "tenant1", "test@latebit.io", "password", AccountDuplicateError{Value: "test@latebit.io"}},
 	}
 	mongodb := utils.NewMongoTestUtil()
 	mongoServer, err := mongodb.CreateServer()
@@ -50,7 +51,7 @@ func TestUserRepository_CreateAccount(t *testing.T) {
 	for _, tt := range tests {
 
 		t.Run(tt.name, func(t *testing.T) {
-			err := accountsRepo.Create(context.TODO(), tt.email, tt.password)
+			err := accountsRepo.Create(context.TODO(), tt.tenantID, tt.email, tt.password)
 			assert.Equal(t, tt.expectedErr, err)
 		})
 	}
@@ -59,13 +60,14 @@ func TestUserRepository_CreateAccount(t *testing.T) {
 func TestUserRepository_ReadAccount(t *testing.T) {
 	tests := []struct {
 		name          string
+		tenantID      string
 		email         string
 		password      string
 		expectedEmail string
 		expectedErr   error
 	}{
-		{"Valid User", "test@latebit.io", "password", "test@latebit.io", nil},
-		{"Not Found", "tes1t@latebit.io", "password", "test2@latebit.io", AccountNotFoundError{Value: "test2@latebit.io"}},
+		{"Valid User", "tenant1", "test@latebit.io", "password", "test@latebit.io", nil},
+		{"Not Found", "tenant1", "tes1t@latebit.io", "password", "test2@latebit.io", AccountNotFoundError{Value: "test2@latebit.io"}},
 	}
 	mongodb := utils.NewMongoTestUtil()
 	mongoServer, err := mongodb.CreateServer()
@@ -93,9 +95,9 @@ func TestUserRepository_ReadAccount(t *testing.T) {
 	for _, tt := range tests {
 
 		t.Run(tt.name, func(t *testing.T) {
-			err := accountsRepo.Create(context.TODO(), tt.email, tt.password)
+			err := accountsRepo.Create(context.TODO(), tt.tenantID, tt.email, tt.password)
 			assert.Equal(t, nil, err)
-			account, err := accountsRepo.Read(context.TODO(), tt.expectedEmail)
+			account, err := accountsRepo.Read(context.TODO(), tt.tenantID, tt.expectedEmail)
 			assert.Equal(t, tt.expectedErr, err)
 			if err == nil {
 				assert.Equal(t, tt.expectedEmail, account.Email)
@@ -107,13 +109,14 @@ func TestUserRepository_ReadAccount(t *testing.T) {
 func TestUserRepository_Delete(t *testing.T) {
 	tests := []struct {
 		name          string
+		tenantID      string
 		email         string
 		password      string
 		expectedEmail string
 		expectedErr   error
 	}{
-		{"Valid User", "test@latebit.io", "password", "test@latebit.io", nil},
-		{"Not Found", "tes1t@latebit.io", "password", "test2@latebit.io", AccountNotFoundError{Value: "test2@latebit.io"}},
+		{"Valid User", "tenant1", "test@latebit.io", "password", "test@latebit.io", nil},
+		{"Not Found", "tenant1", "tes1t@latebit.io", "password", "test2@latebit.io", AccountNotFoundError{Value: "test2@latebit.io"}},
 	}
 	mongodb := utils.NewMongoTestUtil()
 	mongoServer, err := mongodb.CreateServer()
@@ -141,12 +144,12 @@ func TestUserRepository_Delete(t *testing.T) {
 	for _, tt := range tests {
 
 		t.Run(tt.name, func(t *testing.T) {
-			err := accountsRepo.Create(context.TODO(), tt.email, tt.password)
+			err := accountsRepo.Create(context.TODO(), tt.tenantID, tt.email, tt.password)
 			assert.Equal(t, nil, err)
-			err = accountsRepo.Delete(context.TODO(), tt.expectedEmail)
+			err = accountsRepo.Delete(context.TODO(), tt.tenantID, tt.expectedEmail)
 			assert.Equal(t, tt.expectedErr, err)
 			if err == nil {
-				account, err := accountsRepo.Read(context.TODO(), tt.expectedEmail)
+				account, err := accountsRepo.Read(context.TODO(), tt.tenantID, tt.expectedEmail)
 				assert.Equal(t, nil, err)
 				assert.Equal(t, true, account.IsDeleted)
 			}
@@ -157,12 +160,13 @@ func TestUserRepository_Delete(t *testing.T) {
 func TestUserRepository_UpdateEmail(t *testing.T) {
 	tests := []struct {
 		name        string
+		tenantID    string
 		email       string
 		newEmail    string
 		expectedErr error
 	}{
-		{"Valid User", "test@latebit.io", "test1@latebit.io", nil},
-		{"Not Found", "tes2t@latebit.io", "test2@latebit.io", AccountNotFoundError{Value: "test2@latebit.io"}},
+		{"Valid User", "tenant1", "test@latebit.io", "test1@latebit.io", nil},
+		{"Not Found", "tenant1", "tes2t@latebit.io", "test2@latebit.io", AccountNotFoundError{Value: "test2@latebit.io"}},
 	}
 	mongodb := utils.NewMongoTestUtil()
 	mongoServer, err := mongodb.CreateServer()
@@ -190,14 +194,14 @@ func TestUserRepository_UpdateEmail(t *testing.T) {
 	for _, tt := range tests {
 
 		t.Run(tt.name, func(t *testing.T) {
-			err := accountsRepo.Create(context.TODO(), tt.email, "password")
+			err := accountsRepo.Create(context.TODO(), tt.tenantID, tt.email, "password")
 			assert.Equal(t, nil, err)
-			v, err := accountsRepo.UpdateEmail(context.TODO(), tt.email, tt.newEmail)
+			v, err := accountsRepo.UpdateEmail(context.TODO(), tt.tenantID, tt.email, tt.newEmail)
 			assert.Equal(t, nil, err)
 			if err == nil {
 				assert.Equal(t, v.Email, tt.newEmail)
 				assert.NotEmpty(t, v.Token)
-				account, err := accountsRepo.Read(context.TODO(), tt.newEmail)
+				account, err := accountsRepo.Read(context.TODO(), tt.tenantID, tt.newEmail)
 				assert.Equal(t, nil, err)
 				assert.Equal(t, tt.newEmail, account.Email)
 			}
@@ -208,13 +212,14 @@ func TestUserRepository_UpdateEmail(t *testing.T) {
 func TestUserRepository_UpdatePassword(t *testing.T) {
 	tests := []struct {
 		name        string
+		tenantID    string
 		email       string
 		password    string
 		newPassword string
 		match       bool
 		expectedErr error
 	}{
-		{"Valid User", "test@latebit.io", "password", "password1", true, nil},
+		{"Valid User", "tenant1", "test@latebit.io", "password", "password1", true, nil},
 		//{"Does not match", "test1@latebit.io", "password", "password1", false, internal.NotFoundError{Value: "test2@latebit.io"}},
 	}
 	mongodb := utils.NewMongoTestUtil()
@@ -242,12 +247,12 @@ func TestUserRepository_UpdatePassword(t *testing.T) {
 	accountsRepo := NewMongodbAccountRepository(db, encryption.NewDefaultEncryption(12))
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := accountsRepo.Create(context.TODO(), tt.email, tt.password)
+			err := accountsRepo.Create(context.TODO(), tt.tenantID, tt.email, tt.password)
 			assert.Equal(t, nil, err)
-			err = accountsRepo.UpdatePassword(context.TODO(), tt.email, tt.newPassword)
+			err = accountsRepo.UpdatePassword(context.TODO(), tt.tenantID, tt.email, tt.newPassword)
 			assert.Equal(t, nil, err)
 			if err == nil {
-				match, err := accountsRepo.PasswordMatches(context.TODO(), tt.email, tt.newPassword)
+				match, err := accountsRepo.PasswordMatches(context.TODO(), tt.tenantID, tt.email, tt.newPassword)
 				assert.Equal(t, nil, err)
 				assert.Equal(t, tt.match, match)
 			}

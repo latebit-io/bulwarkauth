@@ -43,8 +43,9 @@ func TestDefaultTokenizer_CreateAccessToken(t *testing.T) {
 	}
 
 	tokenizer := NewDefaultTokenizer("test", "test", "test", 3600, 9600, signingService)
+	tenantID := "tenant1"
 	deviceID := "iPhone13_latebit.io"
-	a, err := tokenizer.CreateAccessToken(context.TODO(), "test@latebit.io", deviceID, []string{"role1"})
+	a, err := tokenizer.CreateAccessToken(context.TODO(), tenantID, "test@latebit.io", deviceID, []string{"role1"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -88,8 +89,9 @@ func TestDefaultTokenizer_RefreshAccessToken(t *testing.T) {
 	}
 
 	tokenizer := NewDefaultTokenizer("test", "test", "test", 3600, 9600, signingService)
+	tenantID := "tenant1"
 	deviceID := "iPhone13_latebit.io"
-	r, err := tokenizer.CreateRefreshToken(context.TODO(), "test@latebit.io", deviceID)
+	r, err := tokenizer.CreateRefreshToken(context.TODO(), tenantID, "test@latebit.io", deviceID)
 	if err != nil {
 		t.Fatal(err)
 	}

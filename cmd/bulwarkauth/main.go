@@ -20,6 +20,7 @@ import (
 	"github.com/latebit-io/bulwarkauth/internal/authentication/social"
 	"github.com/latebit-io/bulwarkauth/internal/email"
 	"github.com/latebit-io/bulwarkauth/internal/encryption"
+	"github.com/latebit-io/bulwarkauth/internal/tenants"
 	"github.com/latebit-io/bulwarkauth/internal/tokens"
 	"github.com/latebit-io/bulwarkauth/internal/utils"
 	"github.com/latebit-io/bulwarkauth/internal/version"
@@ -67,10 +68,13 @@ func main() {
 			panic(err)
 		}
 	}()
+
 	ratelimiter := middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(rate.Limit(config.RequestsPerSecond)))
 	mongodb := client.Database("bulwarkauth" + config.DbNameSeed)
 	mongodbTxManager := utils.NewMongoTxManager(client)
 	encrypt := encryption.NewDefaultEncryption(config.PasswordEncryptionCost)
+	tenantRepository := tenants.NewMongoDbTenantRepository(mongodb)
+	tenantService := tenants.NewDefaultTenantService(tenantRepository)
 	accountsRepo := accounts.NewMongodbAccountRepository(mongodb, encrypt)
 	forgotRepo := accounts.NewMongoDbForgotRepository(mongodb)
 	signingRepo := tokens.NewDefaultSigningKeyRepository(mongodb)
@@ -91,7 +95,12 @@ func main() {
 		})
 	wd, _ := os.Getwd()
 	logger.Info("working directory: ", "dir", wd)
-	err = emailService.Initialize(context.Background())
+	defaultTenantID := config.DefaultTenantID
+	err = createDefaultTenantID(context.Background(), tenantService, defaultTenantID)
+	if err != nil {
+		panic(err)
+	}
+	err = emailService.Initialize(context.Background(), defaultTenantID)
 	if err != nil {
 		panic(err)
 	}
@@ -137,6 +146,24 @@ func getLogger() *slog.Logger {
 	jsonHandler := slog.NewJSONHandler(os.Stderr, nil)
 	logger := slog.New(jsonHandler)
 	return logger
+}
+
+func createDefaultTenantID(ctx context.Context, tenantService tenants.TenantService, defaultTenantID string) error {
+	existingTenants, err := tenantService.ListTenants(ctx)
+	if err != nil {
+		return err
+	}
+
+	if len(existingTenants) == 0 {
+		return tenantService.CreateDefault(ctx, defaultTenantID)
+	}
+
+	for _, tenant := range existingTenants {
+		if tenant.ID == defaultTenantID {
+			return nil
+		}
+	}
+	return tenantService.CreateDefault(ctx, defaultTenantID)
 }
 
 func corsSetting(service *echo.Echo, config *AppConfig, logger *slog.Logger) {

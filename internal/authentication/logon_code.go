@@ -20,8 +20,8 @@ const (
 )
 
 type LogonCodeService interface {
-	Authenticate(ctx context.Context, email, clientID, code string) (*Authenticated, error)
-	Request(ctx context.Context, email string) error
+	Authenticate(ctx context.Context, tenantID, email, clientID, code string) (*Authenticated, error)
+	Request(ctx context.Context, tenantID, email string) error
 }
 
 type Encryption interface {
@@ -31,7 +31,7 @@ type Encryption interface {
 
 // EmailService email service contract
 type EmailService interface {
-	SendMagicLinkEmail(ctx context.Context, email, code string) error
+	SendMagicLinkEmail(ctx context.Context, tenantID, email, code string) error
 }
 
 type DefaultLogonCodeService struct {
@@ -57,7 +57,7 @@ func NewDefaultLogonService(logonRepo LogonCodeRepository, accountsRepository Ac
 	}
 }
 
-func (s *DefaultLogonCodeService) Authenticate(ctx context.Context, email, clientID, code string) (*Authenticated, error) {
+func (s *DefaultLogonCodeService) Authenticate(ctx context.Context, tenantID, email, clientID, code string) (*Authenticated, error) {
 	err := utils.ValidateEmail(email)
 	if err != nil {
 		return nil, err
@@ -69,14 +69,14 @@ func (s *DefaultLogonCodeService) Authenticate(ctx context.Context, email, clien
 	}
 
 	// Check if account is locked due to failed attempts
-	attempt, err := s.failedAttemptRepository.Get(ctx, email)
+	attempt, err := s.failedAttemptRepository.Get(ctx, tenantID, email)
 	if err != nil {
 		return nil, err
 	}
 
 	// If lockout period has expired, clear the failed attempts
 	if attempt != nil && !attempt.LockedUntil.IsZero() && time.Now().After(attempt.LockedUntil) {
-		err = s.failedAttemptRepository.Clear(ctx, email)
+		err = s.failedAttemptRepository.Clear(ctx, tenantID, email)
 		if err != nil {
 			return nil, err
 		}
@@ -90,7 +90,7 @@ func (s *DefaultLogonCodeService) Authenticate(ctx context.Context, email, clien
 		}
 	}
 
-	compareCode, err := s.logonCodeRepository.Read(ctx, email)
+	compareCode, err := s.logonCodeRepository.Read(ctx, tenantID, email)
 	if err != nil {
 		return nil, err
 	}
@@ -102,25 +102,25 @@ func (s *DefaultLogonCodeService) Authenticate(ctx context.Context, email, clien
 
 	if verified {
 		// Clear failed attempts on successful authentication
-		err = s.failedAttemptRepository.Clear(ctx, email)
+		err = s.failedAttemptRepository.Clear(ctx, tenantID, email)
 		if err != nil {
 			return nil, err
 		}
 
-		account, err := s.accountsRepository.Read(ctx, email)
+		account, err := s.accountsRepository.Read(ctx, tenantID, email)
 		if err != nil {
 			return nil, err
 		}
 
-		accessToken, err := s.tokens.CreateAccessToken(ctx, email, clientID, account.Roles)
+		accessToken, err := s.tokens.CreateAccessToken(ctx, tenantID, email, clientID, account.Roles)
 		if err != nil {
 			return nil, err
 		}
-		refreshToken, err := s.tokens.CreateRefreshToken(ctx, email, clientID)
+		refreshToken, err := s.tokens.CreateRefreshToken(ctx, tenantID, email, clientID)
 		if err != nil {
 			return nil, err
 		}
-		err = s.logonCodeRepository.Delete(ctx, email, compareCode.Code)
+		err = s.logonCodeRepository.Delete(ctx, tenantID, email, compareCode.Code)
 		if err != nil {
 			log.Println(err)
 		}
@@ -131,7 +131,7 @@ func (s *DefaultLogonCodeService) Authenticate(ctx context.Context, email, clien
 	}
 
 	// Atomically increment failed attempts and lock if threshold reached
-	_, err = s.failedAttemptRepository.IncrementAndLockIfNeeded(ctx, email,
+	_, err = s.failedAttemptRepository.IncrementAndLockIfNeeded(ctx, tenantID, email,
 		s.options.Attempts,
 		time.Duration(s.options.LockOutDuration)*time.Second)
 	if err != nil {
@@ -143,8 +143,8 @@ func (s *DefaultLogonCodeService) Authenticate(ctx context.Context, email, clien
 	}
 }
 
-func (s *DefaultLogonCodeService) Request(ctx context.Context, email string) error {
-	_, err := s.accountsRepository.Read(ctx, email)
+func (s *DefaultLogonCodeService) Request(ctx context.Context, tenantID, email string) error {
+	_, err := s.accountsRepository.Read(ctx, tenantID, email)
 	if err != nil {
 		return err
 	}
@@ -159,12 +159,12 @@ func (s *DefaultLogonCodeService) Request(ctx context.Context, email string) err
 		return err
 	}
 
-	err = s.logonCodeRepository.Create(ctx, email, string(hashedCode), time.Now().Add(expires))
+	err = s.logonCodeRepository.Create(ctx, tenantID, email, string(hashedCode), time.Now().Add(expires))
 	if err != nil {
 		return err
 	}
 
-	err = s.emailService.SendMagicLinkEmail(ctx, email, code)
+	err = s.emailService.SendMagicLinkEmail(ctx, tenantID, email, code)
 	if err != nil {
 		return err
 	}

@@ -10,12 +10,16 @@ import (
 )
 
 type SocialAuthRequest struct {
+	TenantID string `json:"tenantId" query:"tenantId"`
 	ID       string `json:"id" query:"id"`
 	ClientID string `json:"clientId" query:"clientId"`
 	Provider string `json:"provider" query:"provider"`
 }
 
 func (s SocialAuthRequest) Validate() error {
+	if s.TenantID == "" {
+		return errors.New("tenant id required")
+	}
 	if s.ID == "" {
 		return errors.New("id required")
 	}
@@ -50,7 +54,9 @@ func (handler *SocialHandlers) Authenticate(c echo.Context) error {
 		return echo.NewHTTPError(httpError.Status, httpError)
 	}
 
-	authenticated, err := handler.socialService.Authenticate(c.Request().Context(), socialRequest.ID, socialRequest.ClientID,
+	authenticated, err := handler.socialService.Authenticate(c.Request().Context(),
+		socialRequest.TenantID,
+		socialRequest.ID, socialRequest.ClientID,
 		socialRequest.Provider)
 	if err != nil {
 		httpError := problem.NewBadRequest(err)

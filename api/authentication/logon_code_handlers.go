@@ -10,12 +10,16 @@ import (
 )
 
 type LogonAuthRequest struct {
+	TenantID string `json:"tenantId"`
 	Email    string `json:"email"`
 	Code     string `json:"code"`
 	ClientID string `json:"clientId"`
 }
 
 func (l LogonAuthRequest) Validate() error {
+	if l.TenantID == "" {
+		return errors.New("tenant id required")
+	}
 	if l.Email == "" {
 		return errors.New("email required")
 	}
@@ -29,7 +33,8 @@ func (l LogonAuthRequest) Validate() error {
 }
 
 type LogonRequest struct {
-	Email string `json:"email"`
+	TenantID string `json:"tenantId"`
+	Email    string `json:"email"`
 }
 
 type LogonCodeHandlers struct {
@@ -56,7 +61,9 @@ func (h *LogonCodeHandlers) Authenticate(c echo.Context) error {
 		return echo.NewHTTPError(httpError.Status, httpError)
 	}
 
-	authenticated, err := h.logonService.Authenticate(c.Request().Context(), newLogonRequest.Email, newLogonRequest.ClientID,
+	authenticated, err := h.logonService.Authenticate(c.Request().Context(),
+		newLogonRequest.TenantID,
+		newLogonRequest.Email, newLogonRequest.ClientID,
 		newLogonRequest.Code)
 	if err != nil {
 		httpError := problem.NewBadRequest(err)
@@ -73,7 +80,9 @@ func (h *LogonCodeHandlers) LogonRequest(c echo.Context) error {
 		httpError := problem.NewBadRequest(err)
 		return echo.NewHTTPError(httpError.Status, httpError)
 	}
-	err = h.logonService.Request(c.Request().Context(), newLogonRequest.Email)
+	err = h.logonService.Request(c.Request().Context(),
+		newLogonRequest.TenantID,
+		newLogonRequest.Email)
 
 	if err != nil {
 		httpError := problem.NewBadRequest(err)

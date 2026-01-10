@@ -12,15 +12,16 @@ import (
 )
 
 type Forgot struct {
-	Token   string    `bson:"token"`
-	Email   string    `bson:"email"`
-	Created time.Time `bson:"created"`
+	TenantID string    `bson:"tenantId" json:"tenantId"`
+	Token    string    `bson:"token"`
+	Email    string    `bson:"email"`
+	Created  time.Time `bson:"created"`
 }
 
 type ForgotRepository interface {
-	Create(ctx context.Context, email string) error
-	Read(ctx context.Context, email string) (*Forgot, error)
-	Delete(ctx context.Context, email string) error
+	Create(ctx context.Context, tenantID, email string) error
+	Read(ctx context.Context, tenantID, email string) (*Forgot, error)
+	Delete(ctx context.Context, tenantID, email string) error
 }
 
 const (
@@ -31,10 +32,10 @@ type MongoDbForgotRepository struct {
 	db *mongo.Database
 }
 
-func (f *MongoDbForgotRepository) Create(ctx context.Context, email string) error {
+func (f *MongoDbForgotRepository) Create(ctx context.Context, tenantID, email string) error {
 	collection := f.db.Collection(collectionForgot)
 	forgotToken := uuid.New()
-	filter := bson.M{"email": email}
+	filter := bson.D{{Key: "tenantId", Value: tenantID}, {Key: "email", Value: email}}
 	opts := options.Update().SetUpsert(true)
 
 	_, err := collection.UpdateOne(ctx, filter, bson.M{"$set": bson.M{"email": email, "created": time.Now(),
@@ -45,9 +46,9 @@ func (f *MongoDbForgotRepository) Create(ctx context.Context, email string) erro
 	return nil
 }
 
-func (f *MongoDbForgotRepository) Read(ctx context.Context, email string) (*Forgot, error) {
+func (f *MongoDbForgotRepository) Read(ctx context.Context, tenantID, email string) (*Forgot, error) {
 	collection := f.db.Collection(collectionForgot)
-	result := collection.FindOne(ctx, bson.M{"email": email})
+	result := collection.FindOne(ctx, bson.D{{Key: "tenantId", Value: tenantID}, {Key: "email", Value: email}})
 	if errors.Is(result.Err(), mongo.ErrNoDocuments) {
 		return nil, AccountNotFoundError{Value: email}
 	}
@@ -60,9 +61,9 @@ func (f *MongoDbForgotRepository) Read(ctx context.Context, email string) (*Forg
 	return &forgot, nil
 }
 
-func (f *MongoDbForgotRepository) Delete(ctx context.Context, email string) error {
+func (f *MongoDbForgotRepository) Delete(ctx context.Context, tenantID, email string) error {
 	collection := f.db.Collection(collectionForgot)
-	_, err := collection.DeleteOne(ctx, bson.M{"email": email})
+	_, err := collection.DeleteOne(ctx, bson.D{{Key: "tenantId", Value: tenantID}, {Key: "email", Value: email}})
 	if err != nil {
 		return err
 	}

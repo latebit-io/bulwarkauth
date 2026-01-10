@@ -12,22 +12,22 @@ import (
 
 // AuthenticationService defines the interface for authentication services.
 type AuthenticationService interface {
-	Authenticate(ctx context.Context, email, clientID, password string) (*Authenticated, error)
-	Acknowledge(ctx context.Context, Authenticate Authenticated) error
-	ValidateAccessToken(ctx context.Context, accessToken string) (*AccessTokenClaims, error)
-	ValidateRefreshToken(ctx context.Context, refreshToken string) (*RefreshTokenClaims, error)
-	Renew(ctx context.Context, refreshToken string) (*Authenticated, error)
-	Revoke(ctx context.Context, accessToken string) error
+	Authenticate(ctx context.Context, tenantID, email, clientID, password string) (*Authenticated, error)
+	Acknowledge(ctx context.Context, tenantID string, Authenticate Authenticated) error
+	ValidateAccessToken(ctx context.Context, tenantID, accessToken string) (*AccessTokenClaims, error)
+	ValidateRefreshToken(ctx context.Context, tenantID, refreshToken string) (*RefreshTokenClaims, error)
+	Renew(ctx context.Context, tenantID, refreshToken string) (*Authenticated, error)
+	Revoke(ctx context.Context, tenantID, accessToken string) error
 }
 
 type AccountRepository interface {
-	Read(ctx context.Context, email string) (*accounts.Account, error)
-	PasswordMatches(ctx context.Context, email, password string) (bool, error)
+	Read(ctx context.Context, tenantID, email string) (*accounts.Account, error)
+	PasswordMatches(ctx context.Context, tenantID, email, password string) (bool, error)
 }
 
 type Tokenizer interface {
-	CreateAccessToken(ctx context.Context, email, clientID string, rbac []string) (string, error)
-	CreateRefreshToken(ctx context.Context, email, clientID string) (string, error)
+	CreateAccessToken(ctx context.Context, tenantID, email, clientID string, rbac []string) (string, error)
+	CreateRefreshToken(ctx context.Context, tenantID, email, clientID string) (string, error)
 	ValidateRefreshToken(ctx context.Context, tokenString string) (*tokens.RefreshTokenClaims, error)
 	ValidateAccessToken(ctx context.Context, tokenString string) (*tokens.AccessTokenClaims, error)
 }
@@ -49,6 +49,7 @@ type AccessTokenClaims struct {
 	IssuedAt  time.Time `json:"issuedAt"`
 	ID        string    `json:"Id,omitempty"`
 	ClientID  string    `json:"clientId,omitempty"`
+	TenantID  string    `json:"tenantId,omitempty"`
 }
 
 // RefreshTokenClaims represents the claims in a refresh token.
@@ -61,6 +62,7 @@ type RefreshTokenClaims struct {
 	IssuedAt  time.Time `json:"issuedAt"`
 	ID        string    `json:"Id,omitempty"`
 	ClientID  string    `json:"clientId,omitempty"`
+	TenantID  string    `json:"tenantId,omitempty"`
 }
 
 // AuthenticationOptions additional configurations
@@ -91,7 +93,7 @@ func NewDefaultAuthenticationService(accounts AccountRepository,
 }
 
 // Authenticate authenticates a user by their email and password.
-func (a *DefaultAuthenticationService) Authenticate(ctx context.Context, email, clientID, password string) (*Authenticated, error) {
+func (a *DefaultAuthenticationService) Authenticate(ctx context.Context, tenantID, email, clientID, password string) (*Authenticated, error) {
 	err := utils.ValidateEmail(email)
 	if err != nil {
 		return nil, err
@@ -103,14 +105,14 @@ func (a *DefaultAuthenticationService) Authenticate(ctx context.Context, email, 
 	}
 
 	// Check if account is locked due to failed attempts
-	attempt, err := a.failedAttemptRepository.Get(ctx, email)
+	attempt, err := a.failedAttemptRepository.Get(ctx, tenantID, email)
 	if err != nil {
 		return nil, err
 	}
 
 	// If lockout period has expired, clear the failed attempts
 	if attempt != nil && !attempt.LockedUntil.IsZero() && time.Now().After(attempt.LockedUntil) {
-		err = a.failedAttemptRepository.Clear(ctx, email)
+		err = a.failedAttemptRepository.Clear(ctx, tenantID, email)
 		if err != nil {
 			return nil, err
 		}
@@ -124,7 +126,7 @@ func (a *DefaultAuthenticationService) Authenticate(ctx context.Context, email, 
 		}
 	}
 
-	account, err := a.accounts.Read(ctx, email)
+	account, err := a.accounts.Read(ctx, tenantID, email)
 	if err != nil {
 		return nil, err
 	}
@@ -134,14 +136,14 @@ func (a *DefaultAuthenticationService) Authenticate(ctx context.Context, email, 
 		return nil, err
 	}
 
-	authenticated, err := a.accounts.PasswordMatches(ctx, email, password)
+	authenticated, err := a.accounts.PasswordMatches(ctx, tenantID, email, password)
 	if err != nil {
 		return nil, err
 	}
 
 	if !authenticated {
 		// Atomically increment failed attempts and lock if threshold reached
-		_, err = a.failedAttemptRepository.IncrementAndLockIfNeeded(ctx, email,
+		_, err = a.failedAttemptRepository.IncrementAndLockIfNeeded(ctx, tenantID, email,
 			a.options.Attempts,
 			time.Duration(a.options.LockOutDuration)*time.Second)
 		if err != nil {
@@ -154,16 +156,16 @@ func (a *DefaultAuthenticationService) Authenticate(ctx context.Context, email, 
 	}
 
 	// Clear failed attempts on successful authentication
-	err = a.failedAttemptRepository.Clear(ctx, email)
+	err = a.failedAttemptRepository.Clear(ctx, tenantID, email)
 	if err != nil {
 		return nil, err
 	}
 
-	accessToken, err := a.tokens.CreateAccessToken(ctx, email, clientID, account.Roles)
+	accessToken, err := a.tokens.CreateAccessToken(ctx, tenantID, email, clientID, account.Roles)
 	if err != nil {
 		return nil, err
 	}
-	refreshToken, err := a.tokens.CreateRefreshToken(ctx, email, clientID)
+	refreshToken, err := a.tokens.CreateRefreshToken(ctx, tenantID, email, clientID)
 	if err != nil {
 		return nil, err
 	}
@@ -174,11 +176,16 @@ func (a *DefaultAuthenticationService) Authenticate(ctx context.Context, email, 
 }
 
 // Acknowledge acknowledges the authentication by storing the tokens.
-func (a *DefaultAuthenticationService) Acknowledge(ctx context.Context, authenticated Authenticated) error {
+func (a *DefaultAuthenticationService) Acknowledge(ctx context.Context, tenantID string, authenticated Authenticated) error {
 	accessClaims, err := a.tokens.ValidateAccessToken(ctx, authenticated.AccessToken)
 	if err != nil {
 		return err
 	}
+
+	if accessClaims.TenantID != tenantID {
+		return errors.New("token invalid")
+	}
+
 	refreshClaims, err := a.tokens.ValidateRefreshToken(ctx, authenticated.RefreshToken)
 	if err != nil {
 		return err
@@ -186,7 +193,7 @@ func (a *DefaultAuthenticationService) Acknowledge(ctx context.Context, authenti
 	if accessClaims.ClientID != refreshClaims.ClientID {
 		return errors.New("client IDs do not match")
 	}
-	err = a.tokenRepository.Create(ctx, accessClaims.Subject, accessClaims.ClientID,
+	err = a.tokenRepository.Create(ctx, tenantID, accessClaims.Subject, accessClaims.ClientID,
 		authenticated.AccessToken, authenticated.RefreshToken)
 	if err != nil {
 		return err
@@ -195,16 +202,21 @@ func (a *DefaultAuthenticationService) Acknowledge(ctx context.Context, authenti
 }
 
 // ValidateAccessToken validates an access token.
-func (a *DefaultAuthenticationService) ValidateAccessToken(ctx context.Context, accessToken string) (*AccessTokenClaims, error) {
+func (a *DefaultAuthenticationService) ValidateAccessToken(ctx context.Context, tenantID, accessToken string) (*AccessTokenClaims, error) {
 	token, err := a.tokens.ValidateAccessToken(ctx, accessToken)
 	if err != nil {
 		return nil, err
 	}
-	_, err = a.tokenRepository.Read(ctx, token.Subject, token.ClientID)
+
+	if token.TenantID != tenantID {
+		return nil, errors.New("token invalid")
+	}
+	_, err = a.tokenRepository.Read(ctx, token.TenantID, token.Subject, token.ClientID)
 	if err != nil {
 		return nil, TokenNotAcknowledged{Value: err.Error()}
 	}
 	return &AccessTokenClaims{
+		TenantID:  token.TenantID,
 		Roles:     token.Roles,
 		Issuer:    token.Issuer,
 		Subject:   token.Subject,
@@ -217,18 +229,23 @@ func (a *DefaultAuthenticationService) ValidateAccessToken(ctx context.Context, 
 }
 
 // ValidateRefreshToken validates a refresh token.
-func (a *DefaultAuthenticationService) ValidateRefreshToken(ctx context.Context, refreshToken string) (*RefreshTokenClaims, error) {
+func (a *DefaultAuthenticationService) ValidateRefreshToken(ctx context.Context, tenantID string, refreshToken string) (*RefreshTokenClaims, error) {
 	token, err := a.tokens.ValidateRefreshToken(ctx, refreshToken)
 	if err != nil {
 		return nil, err
 	}
 
-	_, err = a.tokenRepository.Read(ctx, token.Subject, token.ClientID)
+	if token.TenantID != tenantID {
+		return nil, errors.New("token invalid")
+	}
+
+	_, err = a.tokenRepository.Read(ctx, token.TenantID, token.Subject, token.ClientID)
 	if err != nil {
 		return nil, TokenNotAcknowledged{Value: err.Error()}
 	}
 
 	return &RefreshTokenClaims{
+		TenantID:  token.TenantID,
 		Issuer:    token.Issuer,
 		Subject:   token.Subject,
 		ExpiresAt: token.ExpiresAt.Time,
@@ -240,23 +257,27 @@ func (a *DefaultAuthenticationService) ValidateRefreshToken(ctx context.Context,
 }
 
 // Renew renews the authentication by generating new tokens.
-func (a *DefaultAuthenticationService) Renew(ctx context.Context, refreshToken string) (*Authenticated, error) {
+func (a *DefaultAuthenticationService) Renew(ctx context.Context, tenantID, refreshToken string) (*Authenticated, error) {
 	token, err := a.tokens.ValidateRefreshToken(ctx, refreshToken)
 	if err != nil {
 		return nil, err
 	}
 
-	account, err := a.accounts.Read(ctx, token.Subject)
+	if token.TenantID != tenantID {
+		return nil, errors.New("token invalid")
+	}
+
+	account, err := a.accounts.Read(ctx, token.TenantID, token.Subject)
 	if err != nil {
 		return nil, err
 	}
 
-	accessToken, err := a.tokens.CreateAccessToken(ctx, token.Subject, token.ClientID, account.Roles)
+	accessToken, err := a.tokens.CreateAccessToken(ctx, token.TenantID, token.Subject, token.ClientID, account.Roles)
 	if err != nil {
 		return nil, err
 	}
 
-	refreshToken, err = a.tokens.CreateRefreshToken(ctx, token.Subject, token.ClientID)
+	refreshToken, err = a.tokens.CreateRefreshToken(ctx, token.TenantID, token.Subject, token.ClientID)
 	if err != nil {
 		return nil, err
 	}
@@ -268,13 +289,18 @@ func (a *DefaultAuthenticationService) Renew(ctx context.Context, refreshToken s
 }
 
 // Revoke revokes the authentication by deleting the tokens.
-func (a *DefaultAuthenticationService) Revoke(ctx context.Context, accessToken string) error {
+func (a *DefaultAuthenticationService) Revoke(ctx context.Context, tenantID string, accessToken string) error {
 	accessClaims, err := a.tokens.ValidateAccessToken(ctx, accessToken)
 	if err != nil {
 		return err
 	}
 
-	err = a.tokenRepository.Delete(ctx, accessClaims.Subject, accessClaims.ClientID)
+	if accessClaims.TenantID != tenantID {
+		return errors.New("token invalid")
+	}
+
+	err = a.tokenRepository.Delete(ctx, accessClaims.TenantID,
+		accessClaims.Subject, accessClaims.ClientID)
 	if err != nil {
 		return err
 	}

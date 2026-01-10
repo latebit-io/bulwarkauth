@@ -53,9 +53,9 @@ type EmailOptions struct {
 
 // EmailService email service contract
 type EmailService interface {
-	SendVerificationEmail(ctx context.Context, email, verificationToken string) error
-	SendForgotPasswordEmail(ctx context.Context, email, forgotToken string) error
-	SendMagicLinkEmail(ctx context.Context, email, code string) error
+	SendVerificationEmail(ctx context.Context, tenantID, email, verificationToken string) error
+	SendForgotPasswordEmail(ctx context.Context, tenantID, email, forgotToken string) error
+	SendMagicLinkEmail(ctx context.Context, tenantID, email, code string) error
 }
 
 type EmailTemplateProvider interface {
@@ -90,16 +90,16 @@ func NewDefaultEmailService(user, secret, server, port, baseUrl, templatesDir, d
 	}
 }
 
-func (s *DefaultEmailService) Initialize(ctx context.Context) error {
-	err := s.verification(ctx)
+func (s *DefaultEmailService) Initialize(ctx context.Context, tenantID string) error {
+	err := s.verification(ctx, tenantID)
 	if err != nil {
 		return err
 	}
-	err = s.forgot(ctx)
+	err = s.forgot(ctx, tenantID)
 	if err != nil {
 		return err
 	}
-	err = s.magic(ctx)
+	err = s.magic(ctx, tenantID)
 	if err != nil {
 		return err
 	}
@@ -107,13 +107,13 @@ func (s *DefaultEmailService) Initialize(ctx context.Context) error {
 	return nil
 }
 
-func (s *DefaultEmailService) verification(ctx context.Context) error {
+func (s *DefaultEmailService) verification(ctx context.Context, tenantID string) error {
 	templateFile, err := os.ReadFile(fmt.Sprintf("%s%s", s.templatesDir, verificationTemplate))
 	if err != nil {
 		return err
 	}
 
-	t, err := s.emailRepository.Read(ctx, "verification")
+	t, err := s.emailRepository.Read(ctx, tenantID, "verification")
 	if err != nil {
 		if !errors.Is(err, mongo.ErrNoDocuments) {
 			return err
@@ -121,7 +121,7 @@ func (s *DefaultEmailService) verification(ctx context.Context) error {
 	}
 
 	if t == "" {
-		err := s.emailRepository.Create(ctx, "verification", string(templateFile))
+		err := s.emailRepository.Create(ctx, tenantID, "verification", string(templateFile))
 		if err != nil {
 			return err
 		}
@@ -130,13 +130,13 @@ func (s *DefaultEmailService) verification(ctx context.Context) error {
 	return nil
 }
 
-func (s *DefaultEmailService) forgot(ctx context.Context) error {
+func (s *DefaultEmailService) forgot(ctx context.Context, tenantID string) error {
 	templateFile, err := os.ReadFile(fmt.Sprintf("%s%s", s.templatesDir, forgotTemplate))
 	if err != nil {
 		return err
 	}
 
-	t, err := s.emailRepository.Read(ctx, "forgot")
+	t, err := s.emailRepository.Read(ctx, tenantID, "forgot")
 	if err != nil {
 		if !errors.Is(err, mongo.ErrNoDocuments) {
 			return err
@@ -144,7 +144,7 @@ func (s *DefaultEmailService) forgot(ctx context.Context) error {
 	}
 
 	if t == "" {
-		err := s.emailRepository.Create(ctx, "forgot", string(templateFile))
+		err := s.emailRepository.Create(ctx, tenantID, "forgot", string(templateFile))
 		if err != nil {
 			return err
 		}
@@ -153,13 +153,13 @@ func (s *DefaultEmailService) forgot(ctx context.Context) error {
 	return nil
 }
 
-func (s *DefaultEmailService) magic(ctx context.Context) error {
+func (s *DefaultEmailService) magic(ctx context.Context, tenantID string) error {
 	templateFile, err := os.ReadFile(fmt.Sprintf("%s%s", s.templatesDir, magicTemplate))
 	if err != nil {
 		return err
 	}
 
-	t, err := s.emailRepository.Read(ctx, "magic")
+	t, err := s.emailRepository.Read(ctx, tenantID, "magic")
 	if err != nil {
 		if !errors.Is(err, mongo.ErrNoDocuments) {
 			return err
@@ -167,7 +167,7 @@ func (s *DefaultEmailService) magic(ctx context.Context) error {
 	}
 
 	if t == "" {
-		err := s.emailRepository.Create(ctx, "magic", string(templateFile))
+		err := s.emailRepository.Create(ctx, tenantID, "magic", string(templateFile))
 		if err != nil {
 			return err
 		}
@@ -177,7 +177,7 @@ func (s *DefaultEmailService) magic(ctx context.Context) error {
 }
 
 // SendVerificationEmail will send out the verification email when a user signs up to activate their account
-func (s *DefaultEmailService) SendVerificationEmail(ctx context.Context, email, verificationToken string) error {
+func (s *DefaultEmailService) SendVerificationEmail(ctx context.Context, tenantID, email, verificationToken string) error {
 	subject := "Please verify account"
 
 	err := utils.ValidateEmail(email)
@@ -185,7 +185,7 @@ func (s *DefaultEmailService) SendVerificationEmail(ctx context.Context, email, 
 		return err
 	}
 
-	t, err := s.emailRepository.Read(ctx, "verification")
+	t, err := s.emailRepository.Read(ctx, tenantID, "verification")
 
 	if err != nil {
 		return err
@@ -217,9 +217,9 @@ func (s *DefaultEmailService) SendVerificationEmail(ctx context.Context, email, 
 	return nil
 }
 
-func (s *DefaultEmailService) SendForgotPasswordEmail(ctx context.Context, email, forgotToken string) error {
+func (s *DefaultEmailService) SendForgotPasswordEmail(ctx context.Context, tenantID, email, forgotToken string) error {
 	subject := "Password reset requested"
-	t, err := s.emailRepository.Read(ctx, "forgot")
+	t, err := s.emailRepository.Read(ctx, tenantID, "forgot")
 
 	if err != nil {
 		return err
@@ -248,9 +248,9 @@ func (s *DefaultEmailService) SendForgotPasswordEmail(ctx context.Context, email
 	return nil
 }
 
-func (s *DefaultEmailService) SendMagicLinkEmail(ctx context.Context, email, code string) error {
+func (s *DefaultEmailService) SendMagicLinkEmail(ctx context.Context, tenantID, email, code string) error {
 	subject := "Login link requested"
-	t, err := s.emailRepository.Read(ctx, "magic")
+	t, err := s.emailRepository.Read(ctx, tenantID, "magic")
 
 	if err != nil {
 		return err

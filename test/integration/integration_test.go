@@ -19,6 +19,7 @@ import (
 const (
 	baseURI    = "http://localhost:8080"
 	mailHogURI = "http://localhost:8025"
+	tenantID   = "default"
 )
 
 var (
@@ -99,7 +100,7 @@ func createAndVerifyAccount(ctx context.Context, t *testing.T) (string, string) 
 	password := "TestPassword123!"
 
 	// Create account
-	err := guard.Account.Create(ctx, email, password)
+	err := guard.Account.Create(ctx, tenantID, email, password)
 	require.NoError(t, err)
 
 	// Wait a bit for the account to be created
@@ -110,7 +111,7 @@ func createAndVerifyAccount(ctx context.Context, t *testing.T) (string, string) 
 	require.NoError(t, err)
 
 	// Verify account
-	err = guard.Account.Verify(ctx, email, token)
+	err = guard.Account.Verify(ctx, tenantID, email, token)
 	require.NoError(t, err)
 
 	return email, password
@@ -123,7 +124,7 @@ func TestAccountCreate(t *testing.T) {
 	email := generateTestEmail()
 	password := "TestPassword123!"
 
-	err := guard.Account.Create(ctx, email, password)
+	err := guard.Account.Create(ctx, tenantID, email, password)
 	require.NoError(t, err)
 }
 
@@ -132,11 +133,11 @@ func TestAccountCreateDuplicate(t *testing.T) {
 	email := generateTestEmail()
 	password := "TestPassword123!"
 
-	err := guard.Account.Create(ctx, email, password)
+	err := guard.Account.Create(ctx, tenantID, email, password)
 	require.NoError(t, err)
 
 	// Try to create duplicate
-	err = guard.Account.Create(ctx, email, password)
+	err = guard.Account.Create(ctx, tenantID, email, password)
 	require.Error(t, err, "Should reject duplicate account")
 }
 
@@ -147,7 +148,7 @@ func TestAccountCreateAndVerify(t *testing.T) {
 	clientID := generateClientID()
 
 	// Create account
-	err := guard.Account.Create(ctx, email, password)
+	err := guard.Account.Create(ctx, tenantID, email, password)
 	require.NoError(t, err)
 
 	time.Sleep(100 * time.Millisecond)
@@ -157,26 +158,26 @@ func TestAccountCreateAndVerify(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify account
-	err = guard.Account.Verify(ctx, email, token)
+	err = guard.Account.Verify(ctx, tenantID, email, token)
 	require.NoError(t, err)
 
 	// Authenticate with password
-	authResponse, err := guard.Authenticate.Password(ctx, email, password, clientID)
+	authResponse, err := guard.Authenticate.Password(ctx, tenantID, email, password, clientID)
 	require.NoError(t, err)
 	assert.NotEmpty(t, authResponse.AccessToken)
 	assert.NotEmpty(t, authResponse.RefreshToken)
 
 	// Acknowledge authentication
-	err = guard.Authenticate.Acknowledge(ctx, authResponse)
+	err = guard.Authenticate.Acknowledge(ctx, tenantID, authResponse)
 	require.NoError(t, err)
 
 	// Change password (requires access token)
 	newPassword := "NewPassword456!"
-	err = guard.Account.ChangePassword(ctx, email, newPassword, authResponse.AccessToken)
+	err = guard.Account.ChangePassword(ctx, tenantID, email, newPassword, authResponse.AccessToken)
 	require.NoError(t, err)
 
 	// Verify new password works
-	authResponse2, err := guard.Authenticate.Password(ctx, email, newPassword, clientID)
+	authResponse2, err := guard.Authenticate.Password(ctx, tenantID, email, newPassword, clientID)
 	require.NoError(t, err)
 	assert.NotEmpty(t, authResponse2.AccessToken)
 }
@@ -187,30 +188,30 @@ func TestAuthenticatePasswordFlow(t *testing.T) {
 	clientID := generateClientID()
 
 	// Authenticate
-	authResponse, err := guard.Authenticate.Password(ctx, email, password, clientID)
+	authResponse, err := guard.Authenticate.Password(ctx, tenantID, email, password, clientID)
 	require.NoError(t, err)
 	assert.NotEmpty(t, authResponse.AccessToken)
 	assert.NotEmpty(t, authResponse.RefreshToken)
 
 	// Acknowledge
-	err = guard.Authenticate.Acknowledge(ctx, authResponse)
+	err = guard.Authenticate.Acknowledge(ctx, tenantID, authResponse)
 	require.NoError(t, err)
 
 	// Validate access token
-	claims, err := guard.Authenticate.ValidateAccessToken(ctx, authResponse.AccessToken)
+	claims, err := guard.Authenticate.ValidateAccessToken(ctx, tenantID, authResponse.AccessToken)
 	require.NoError(t, err)
 	// Roles may be nil or empty for accounts without assigned roles
 	_ = claims.Roles
 
 	// Renew tokens
-	renewResponse, err := guard.Authenticate.Renew(ctx, email, authResponse.RefreshToken)
+	renewResponse, err := guard.Authenticate.Renew(ctx, tenantID, email, authResponse.RefreshToken)
 	require.NoError(t, err)
 	assert.NotEmpty(t, renewResponse.AccessToken)
 	assert.NotEmpty(t, renewResponse.RefreshToken)
 	assert.NotEqual(t, authResponse.AccessToken, renewResponse.AccessToken)
 
 	// Revoke
-	err = guard.Authenticate.Revoke(ctx, email, renewResponse.AccessToken, clientID)
+	err = guard.Authenticate.Revoke(ctx, tenantID, email, renewResponse.AccessToken, clientID)
 	require.NoError(t, err)
 }
 
@@ -220,7 +221,7 @@ func TestAuthenticateMagicCode(t *testing.T) {
 	clientID := generateClientID()
 
 	// Request magic code
-	err := guard.Authenticate.RequestMagicCode(ctx, email)
+	err := guard.Authenticate.RequestMagicCode(ctx, tenantID, email)
 	require.NoError(t, err)
 
 	time.Sleep(100 * time.Millisecond)
@@ -231,7 +232,7 @@ func TestAuthenticateMagicCode(t *testing.T) {
 	assert.Len(t, magicCode, 6, "Magic code should be 6 digits")
 
 	// Authenticate with magic code
-	authResponse, err := guard.Authenticate.MagicCode(ctx, email, magicCode, clientID)
+	authResponse, err := guard.Authenticate.MagicCode(ctx, tenantID, email, magicCode, clientID)
 	require.NoError(t, err)
 	assert.NotEmpty(t, authResponse.AccessToken)
 	assert.NotEmpty(t, authResponse.RefreshToken)
@@ -242,7 +243,7 @@ func TestAuthenticateMagicCodeFail(t *testing.T) {
 	email := generateTestEmail()
 
 	// Request magic code for non-existent account
-	err := guard.Authenticate.RequestMagicCode(ctx, email)
+	err := guard.Authenticate.RequestMagicCode(ctx, tenantID, email)
 	// Note: API may return success for security (to not reveal if email exists)
 	// Check your API's behavior and adjust assertion if needed
 	_ = err
@@ -254,11 +255,11 @@ func TestMultiDeviceAuthentication(t *testing.T) {
 
 	// Authenticate from two devices
 	clientID1 := generateClientID()
-	auth1, err := guard.Authenticate.Password(ctx, email, password, clientID1)
+	auth1, err := guard.Authenticate.Password(ctx, tenantID, email, password, clientID1)
 	require.NoError(t, err)
 
 	clientID2 := generateClientID()
-	auth2, err := guard.Authenticate.Password(ctx, email, password, clientID2)
+	auth2, err := guard.Authenticate.Password(ctx, tenantID, email, password, clientID2)
 	require.NoError(t, err)
 
 	// Tokens should be different
@@ -266,25 +267,25 @@ func TestMultiDeviceAuthentication(t *testing.T) {
 	assert.NotEqual(t, auth1.RefreshToken, auth2.RefreshToken)
 
 	// Acknowledge both
-	err = guard.Authenticate.Acknowledge(ctx, auth1)
+	err = guard.Authenticate.Acknowledge(ctx, tenantID, auth1)
 	require.NoError(t, err)
 
-	err = guard.Authenticate.Acknowledge(ctx, auth2)
+	err = guard.Authenticate.Acknowledge(ctx, tenantID, auth2)
 	require.NoError(t, err)
 
 	// Both should be valid
-	_, err = guard.Authenticate.ValidateAccessToken(ctx, auth1.AccessToken)
+	_, err = guard.Authenticate.ValidateAccessToken(ctx, tenantID, auth1.AccessToken)
 	require.NoError(t, err)
 
-	_, err = guard.Authenticate.ValidateAccessToken(ctx, auth2.AccessToken)
+	_, err = guard.Authenticate.ValidateAccessToken(ctx, tenantID, auth2.AccessToken)
 	require.NoError(t, err)
 
 	// Revoke device 1
-	err = guard.Authenticate.Revoke(ctx, email, auth1.AccessToken, clientID1)
+	err = guard.Authenticate.Revoke(ctx, tenantID, email, auth1.AccessToken, clientID1)
 	require.NoError(t, err)
 
 	// Device 2 should still be valid
-	_, err = guard.Authenticate.ValidateAccessToken(ctx, auth2.AccessToken)
+	_, err = guard.Authenticate.ValidateAccessToken(ctx, tenantID, auth2.AccessToken)
 	require.NoError(t, err)
 }
 
@@ -294,18 +295,18 @@ func TestTokenRenewal(t *testing.T) {
 	clientID := generateClientID()
 
 	// Authenticate
-	auth1, err := guard.Authenticate.Password(ctx, email, password, clientID)
+	auth1, err := guard.Authenticate.Password(ctx, tenantID, email, password, clientID)
 	require.NoError(t, err)
 
 	// Acknowledge before renewal
-	err = guard.Authenticate.Acknowledge(ctx, auth1)
+	err = guard.Authenticate.Acknowledge(ctx, tenantID, auth1)
 	require.NoError(t, err)
 
 	// Renew multiple times
-	auth2, err := guard.Authenticate.Renew(ctx, email, auth1.RefreshToken)
+	auth2, err := guard.Authenticate.Renew(ctx, tenantID, email, auth1.RefreshToken)
 	require.NoError(t, err)
 
-	auth3, err := guard.Authenticate.Renew(ctx, email, auth2.RefreshToken)
+	auth3, err := guard.Authenticate.Renew(ctx, tenantID, email, auth2.RefreshToken)
 	require.NoError(t, err)
 
 	// All tokens should be unique
@@ -314,7 +315,7 @@ func TestTokenRenewal(t *testing.T) {
 	assert.NotEqual(t, auth1.AccessToken, auth3.AccessToken)
 
 	// Latest token should be valid
-	claims, err := guard.Authenticate.ValidateAccessToken(ctx, auth3.AccessToken)
+	claims, err := guard.Authenticate.ValidateAccessToken(ctx, tenantID, auth3.AccessToken)
 	require.NoError(t, err)
 	// Roles may be nil or empty for accounts without assigned roles
 	_ = claims.Roles
@@ -326,24 +327,24 @@ func TestPasswordChange(t *testing.T) {
 	clientID := generateClientID()
 
 	// Authenticate to get access token
-	auth, err := guard.Authenticate.Password(ctx, email, password, clientID)
+	auth, err := guard.Authenticate.Password(ctx, tenantID, email, password, clientID)
 	require.NoError(t, err)
 
 	// Acknowledge
-	err = guard.Authenticate.Acknowledge(ctx, auth)
+	err = guard.Authenticate.Acknowledge(ctx, tenantID, auth)
 	require.NoError(t, err)
 
 	// Change password
 	newPassword := "NewPassword456!"
-	err = guard.Account.ChangePassword(ctx, email, newPassword, auth.AccessToken)
+	err = guard.Account.ChangePassword(ctx, tenantID, email, newPassword, auth.AccessToken)
 	require.NoError(t, err)
 
 	// Old password should not work
-	_, err = guard.Authenticate.Password(ctx, email, password, clientID)
+	_, err = guard.Authenticate.Password(ctx, tenantID, email, password, clientID)
 	require.Error(t, err, "Old password should not work")
 
 	// New password should work
-	newAuth, err := guard.Authenticate.Password(ctx, email, newPassword, clientID)
+	newAuth, err := guard.Authenticate.Password(ctx, tenantID, email, newPassword, clientID)
 	require.NoError(t, err)
 	assert.NotEmpty(t, newAuth.AccessToken)
 }
@@ -356,21 +357,21 @@ func TestAccountLockoutAfterFailedAttempts(t *testing.T) {
 
 	// Attempt 1-4: Wrong password, should fail but not lock
 	for range 4 {
-		_, err := guard.Authenticate.Password(ctx, email, wrongPassword, clientID)
+		_, err := guard.Authenticate.Password(ctx, tenantID, email, wrongPassword, clientID)
 		require.Error(t, err, "Wrong password should fail")
 	}
 
 	// Attempt 5: Should fail and trigger lockout
-	_, err := guard.Authenticate.Password(ctx, email, wrongPassword, clientID)
+	_, err := guard.Authenticate.Password(ctx, tenantID, email, wrongPassword, clientID)
 	require.Error(t, err, "Fifth wrong password should fail and lock account")
 
 	// Attempt 6: Should be locked even with correct password
-	_, err = guard.Authenticate.Password(ctx, email, password, clientID)
+	_, err = guard.Authenticate.Password(ctx, tenantID, email, password, clientID)
 	require.Error(t, err, "Account should be locked")
 	assert.Contains(t, err.Error(), "locked", "Error should indicate account is locked")
 
 	// Attempt 7: Wrong password while locked
-	_, err = guard.Authenticate.Password(ctx, email, wrongPassword, clientID)
+	_, err = guard.Authenticate.Password(ctx, tenantID, email, wrongPassword, clientID)
 	require.Error(t, err, "Account should still be locked")
 	assert.Contains(t, err.Error(), "locked", "Error should indicate account is locked")
 }
@@ -383,31 +384,31 @@ func TestAccountLockoutMagicCode(t *testing.T) {
 
 	// Attempt 1-4: Wrong magic code
 	for range 4 {
-		err := guard.Authenticate.RequestMagicCode(ctx, email)
+		err := guard.Authenticate.RequestMagicCode(ctx, tenantID, email)
 		require.NoError(t, err)
 		time.Sleep(100 * time.Millisecond)
 
-		_, err = guard.Authenticate.MagicCode(ctx, email, wrongCode, clientID)
+		_, err = guard.Authenticate.MagicCode(ctx, tenantID, email, wrongCode, clientID)
 		require.Error(t, err, "Wrong magic code should fail")
 	}
 
 	// Attempt 5: Should fail and trigger lockout
-	err := guard.Authenticate.RequestMagicCode(ctx, email)
+	err := guard.Authenticate.RequestMagicCode(ctx, tenantID, email)
 	require.NoError(t, err)
 	time.Sleep(100 * time.Millisecond)
 
-	_, err = guard.Authenticate.MagicCode(ctx, email, wrongCode, clientID)
+	_, err = guard.Authenticate.MagicCode(ctx, tenantID, email, wrongCode, clientID)
 	require.Error(t, err, "Fifth wrong code should fail and lock account")
 
 	// Request new code and try with correct code - should be locked
-	err = guard.Authenticate.RequestMagicCode(ctx, email)
+	err = guard.Authenticate.RequestMagicCode(ctx, tenantID, email)
 	require.NoError(t, err)
 	time.Sleep(100 * time.Millisecond)
 
 	magicCode, err := getMagicCode(ctx, email)
 	require.NoError(t, err)
 
-	_, err = guard.Authenticate.MagicCode(ctx, email, magicCode, clientID)
+	_, err = guard.Authenticate.MagicCode(ctx, tenantID, email, magicCode, clientID)
 	require.Error(t, err, "Account should be locked even with correct magic code")
 	assert.Contains(t, err.Error(), "locked", "Error should indicate account is locked")
 }
@@ -420,31 +421,31 @@ func TestAccountLockoutClearsOnSuccessfulLogin(t *testing.T) {
 
 	// Fail 3 times
 	for range 3 {
-		_, err := guard.Authenticate.Password(ctx, email, wrongPassword, clientID)
+		_, err := guard.Authenticate.Password(ctx, tenantID, email, wrongPassword, clientID)
 		require.Error(t, err)
 	}
 
 	// Successful login should clear failed attempts
-	auth, err := guard.Authenticate.Password(ctx, email, password, clientID)
+	auth, err := guard.Authenticate.Password(ctx, tenantID, email, password, clientID)
 	require.NoError(t, err)
 	assert.NotEmpty(t, auth.AccessToken)
 
 	// Acknowledge
-	err = guard.Authenticate.Acknowledge(ctx, auth)
+	err = guard.Authenticate.Acknowledge(ctx, tenantID, auth)
 	require.NoError(t, err)
 
 	// Should be able to fail 5 more times before lockout (counter was reset)
 	for range 4 {
-		_, err := guard.Authenticate.Password(ctx, email, wrongPassword, clientID)
+		_, err := guard.Authenticate.Password(ctx, tenantID, email, wrongPassword, clientID)
 		require.Error(t, err, "Wrong password should fail")
 	}
 
 	// 5th attempt should lock again
-	_, err = guard.Authenticate.Password(ctx, email, wrongPassword, clientID)
+	_, err = guard.Authenticate.Password(ctx, tenantID, email, wrongPassword, clientID)
 	require.Error(t, err)
 
 	// Should be locked
-	_, err = guard.Authenticate.Password(ctx, email, password, clientID)
+	_, err = guard.Authenticate.Password(ctx, tenantID, email, password, clientID)
 	require.Error(t, err, "Account should be locked after 5 new failures")
 	assert.Contains(t, err.Error(), "locked", "Error should indicate account is locked")
 }
@@ -459,12 +460,12 @@ func TestAccountLockoutExpiresAndResetsCounter(t *testing.T) {
 
 	// Fail 5 times to trigger lockout
 	for range 5 {
-		_, err := guard.Authenticate.Password(ctx, email, wrongPassword, clientID)
+		_, err := guard.Authenticate.Password(ctx, tenantID, email, wrongPassword, clientID)
 		require.Error(t, err)
 	}
 
 	// Verify locked
-	_, err := guard.Authenticate.Password(ctx, email, password, clientID)
+	_, err := guard.Authenticate.Password(ctx, tenantID, email, password, clientID)
 	require.Error(t, err, "Account should be locked")
 	assert.Contains(t, err.Error(), "locked")
 
@@ -473,23 +474,23 @@ func TestAccountLockoutExpiresAndResetsCounter(t *testing.T) {
 	time.Sleep(3 * time.Second)
 
 	// Now authentication should work and the counter should be cleared
-	auth, err := guard.Authenticate.Password(ctx, email, password, clientID)
+	auth, err := guard.Authenticate.Password(ctx, tenantID, email, password, clientID)
 	require.NoError(t, err, "Lockout should have expired, authentication should succeed")
 	assert.NotEmpty(t, auth.AccessToken)
 
 	// Acknowledge the successful authentication
-	err = guard.Authenticate.Acknowledge(ctx, auth)
+	err = guard.Authenticate.Acknowledge(ctx, tenantID, auth)
 	require.NoError(t, err)
 
 	// Verify the failed attempts counter was reset by trying 4 more failed attempts
 	// (should not lock since counter was reset)
 	for range 4 {
-		_, err := guard.Authenticate.Password(ctx, email, wrongPassword, clientID)
+		_, err := guard.Authenticate.Password(ctx, tenantID, email, wrongPassword, clientID)
 		require.Error(t, err, "Wrong password should fail")
 	}
 
 	// Should still be able to authenticate (not locked yet, only 4 failures)
-	auth2, err := guard.Authenticate.Password(ctx, email, password, clientID)
+	auth2, err := guard.Authenticate.Password(ctx, tenantID, email, password, clientID)
 	require.NoError(t, err, "Should not be locked after only 4 failures post-reset")
 	assert.NotEmpty(t, auth2.AccessToken)
 }
