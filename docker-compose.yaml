@@ -19,7 +19,6 @@ services:
       - 8025:8025
     container_name: mailhog_container
   bulwarkauth:
-    image: ghcr.io/latebit-io/bulwarkauth:latest
     build:
       dockerfile: Dockerfile
     network_mode: "host"
