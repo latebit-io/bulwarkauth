@@ -37,7 +37,7 @@ func NewDefaultLogonCodeRepository(db *mongo.Database) *DefaultLogonCodeReposito
 
 func (c *DefaultLogonCodeRepository) Create(ctx context.Context, tenantID, email, code string, expires time.Time) error {
 	collection := c.db.Collection(logonCodeCollectionName)
-	filter := bson.M{"email": email}
+	filter := bson.M{"tenantId": tenantID, "email": email}
 	update := bson.D{
 		{"$set", bson.D{
 			{"code", code},

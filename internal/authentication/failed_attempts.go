@@ -38,7 +38,7 @@ func NewMongoFailedAttemptRepository(db *mongo.Database) FailedAttemptRepository
 
 	// Create index on email
 	_, _ = collection.Indexes().CreateOne(context.Background(), mongo.IndexModel{
-		Keys:    bson.D{{Key: "tenantID", Value: 1}, {Key: "email", Value: 1}},
+		Keys:    bson.D{{Key: "tenantId", Value: 1}, {Key: "email", Value: 1}},
 		Options: options.Index().SetUnique(true),
 	})
 

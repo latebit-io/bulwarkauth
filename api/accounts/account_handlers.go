@@ -14,49 +14,49 @@ type AccountHandler struct {
 }
 
 type NewAccountRequest struct {
-	TenantID string `json:"tenantID"`
+	TenantID string `json:"tenantId"`
 	Email    string `json:"email"`
 	Password string `json:"password"`
 }
 
 type VerifyAccountRequest struct {
-	TenantID string `json:"tenantID"`
+	TenantID string `json:"tenantId"`
 	Email    string `json:"email"`
 	Token    string `json:"token"`
 }
 
 type ResendVerificationRequest struct {
-	TenantID string `json:"tenantID"`
+	TenantID string `json:"tenantId"`
 	Email    string `json:"email"`
 }
 
 type ForgotPasswordRequest struct {
-	TenantID string `json:"tenantID"`
+	TenantID string `json:"tenantId"`
 	Email    string `json:"email"`
 }
 
 type ResetPasswordRequest struct {
-	TenantID string `json:"tenantID"`
+	TenantID string `json:"tenantId"`
 	Email    string `json:"email"`
 	Token    string `json:"token"`
 	Password string `json:"password"`
 }
 
 type DeleteAccountRequest struct {
-	TenantID    string `json:"tenantID"`
+	TenantID    string `json:"tenantId"`
 	Email       string `json:"email"`
 	AccessToken string `json:"accessToken"`
 }
 
 type ChangePasswordRequest struct {
-	TenantID    string `json:"tenantID"`
+	TenantID    string `json:"tenantId"`
 	Email       string `json:"email"`
 	Password    string `json:"newPassword"`
 	AccessToken string `json:"accessToken"`
 }
 
 type UpdateEmailRequest struct {
-	TenantID    string `json:"tenantID"`
+	TenantID    string `json:"tenantId"`
 	Email       string `json:"email"`
 	AccessToken string `json:"accessToken"`
 }
