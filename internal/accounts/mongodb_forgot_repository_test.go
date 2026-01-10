@@ -12,10 +12,11 @@ import (
 
 func TestMongoDbForgotRepository_Create(t *testing.T) {
 	tests := []struct {
-		name  string
-		email string
+		name     string
+		tenantID string
+		email    string
 	}{
-		{"Valid User", "test@latebit.io"},
+		{"Valid User", "tenant1", "test@latebit.io"},
 	}
 
 	mongodb := utils.NewMongoTestUtil()
@@ -45,33 +46,33 @@ func TestMongoDbForgotRepository_Create(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if err := forgotRepo.Create(context.Background(), tt.email); err != nil {
+			if err := forgotRepo.Create(context.Background(), tt.tenantID, tt.email); err != nil {
 				t.Fatal(err)
 			}
-			token, err := forgotRepo.Read(context.Background(), tt.email)
+			token, err := forgotRepo.Read(context.Background(), tt.tenantID, tt.email)
 			if err != nil {
 				t.Fatal(err)
 			}
 			old := token.Token
 			assert.Equal(t, tt.email, token.Email)
 
-			err = forgotRepo.Create(context.Background(), tt.email)
+			err = forgotRepo.Create(context.Background(), tt.tenantID, tt.email)
 			if err != nil {
 				t.Fatal(err)
 			}
 
-			token, err = forgotRepo.Read(context.Background(), tt.email)
+			token, err = forgotRepo.Read(context.Background(), tt.tenantID, tt.email)
 			if err != nil {
 				t.Fatal(err)
 			}
 
 			assert.Equal(t, tt.email, token.Email)
 			assert.NotEqual(t, old, token.Email)
-			err = forgotRepo.Delete(context.Background(), tt.email)
+			err = forgotRepo.Delete(context.Background(), tt.tenantID, tt.email)
 			if err != nil {
 				t.Fatal(err)
 			}
-			token, err = forgotRepo.Read(context.Background(), tt.email)
+			token, err = forgotRepo.Read(context.Background(), tt.tenantID, tt.email)
 			assert.Equal(t, AccountNotFoundError{Value: tt.email}, err)
 		})
 	}

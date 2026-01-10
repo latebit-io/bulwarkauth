@@ -12,7 +12,7 @@ func NewMockEmailRepository() *MockEmailRepository {
 	return &MockEmailRepository{}
 }
 
-func (r *MockEmailRepository) Read(ctx context.Context, name string) (string, error) {
+func (r *MockEmailRepository) Read(ctx context.Context, tenantID, name string) (string, error) {
 	content, err := os.ReadFile("../../verification.html")
 	if err != nil {
 		return "", err
@@ -21,11 +21,11 @@ func (r *MockEmailRepository) Read(ctx context.Context, name string) (string, er
 	return string(content), nil
 }
 
-func (r *MockEmailRepository) Create(ctx context.Context, name, template string) error {
+func (r *MockEmailRepository) Create(ctx context.Context, tenantID, name, template string) error {
 	return nil
 }
 
-func (r *MockEmailRepository) Update(ctx context.Context, name, template string) error {
+func (r *MockEmailRepository) Update(ctx context.Context, tenantID, name, template string) error {
 	return nil
 }
 

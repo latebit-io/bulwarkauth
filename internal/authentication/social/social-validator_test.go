@@ -106,7 +106,7 @@ func TestGoogleValidator_WithRealToken_FullFlow(t *testing.T) {
 	tokenizer := tokens.NewDefaultTokenizer("test", "test", "test", 3600, 9600, signingService)
 
 	mockEmailService := &accounts.MockEmailService{}
-	mockEmailService.On("SendVerificationEmail", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	mockEmailService.On("SendVerificationEmail", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	accountService := accounts.NewDefaultAccountService(accountRepo, forgotRepo, tokenizer, mockEmailService, mongodbTxManager)
 
@@ -124,18 +124,20 @@ func TestGoogleValidator_WithRealToken_FullFlow(t *testing.T) {
 
 	t.Logf("Validated token for email: %s", social.Email)
 
+	tenantID := "tenant1"
+
 	// Create and verify account with the email from the token
-	err = accountService.Register(context.Background(), social.Email, "test-password")
+	err = accountService.Register(context.Background(), tenantID, social.Email, "test-password")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	account, err := accountRepo.Read(context.Background(), social.Email)
+	account, err := accountRepo.Read(context.Background(), tenantID, social.Email)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	err = accountService.Verify(context.Background(), social.Email, account.VerificationToken)
+	err = accountService.Verify(context.Background(), tenantID, social.Email, account.VerificationToken)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -145,7 +147,7 @@ func TestGoogleValidator_WithRealToken_FullFlow(t *testing.T) {
 	socialService.AddValidator(googleValidator)
 
 	// Authenticate with the real Google ID token
-	authenticated, err := socialService.Authenticate(context.Background(), idToken, deviceID, "google")
+	authenticated, err := socialService.Authenticate(context.Background(), tenantID, idToken, deviceID, "google")
 
 	// Assertions
 	assert.NoError(t, err, "Authentication should succeed")
@@ -154,7 +156,7 @@ func TestGoogleValidator_WithRealToken_FullFlow(t *testing.T) {
 	assert.NotEmpty(t, authenticated.RefreshToken, "Refresh token should be generated")
 
 	// Verify social provider was linked
-	updatedAccount, err := accountRepo.Read(context.Background(), social.Email)
+	updatedAccount, err := accountRepo.Read(context.Background(), tenantID, social.Email)
 	assert.NoError(t, err)
 	assert.Len(t, updatedAccount.SocialProviders, 1, "Should have one social provider linked")
 	assert.Equal(t, "google", updatedAccount.SocialProviders[0].Name)

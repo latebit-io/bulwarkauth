@@ -28,15 +28,16 @@ func TestMongoFailedAttemptRepository_Increment(t *testing.T) {
 
 	db := client.Database("testdb")
 	repo := NewMongoFailedAttemptRepository(db)
+	tenantID := "tenant1"
 	email := "test@example.com"
 
 	// First increment
-	err = repo.Increment(ctx, email)
+	err = repo.Increment(ctx, tenantID, email)
 	if err != nil {
 		t.Fatalf("Failed to increment: %v", err)
 	}
 
-	attempt, err := repo.Get(ctx, email)
+	attempt, err := repo.Get(ctx, tenantID, email)
 	if err != nil {
 		t.Fatalf("Failed to get attempt: %v", err)
 	}
@@ -50,12 +51,12 @@ func TestMongoFailedAttemptRepository_Increment(t *testing.T) {
 	}
 
 	// Second increment
-	err = repo.Increment(ctx, email)
+	err = repo.Increment(ctx, tenantID, email)
 	if err != nil {
 		t.Fatalf("Failed to increment second time: %v", err)
 	}
 
-	attempt, err = repo.Get(ctx, email)
+	attempt, err = repo.Get(ctx, tenantID, email)
 	if err != nil {
 		t.Fatalf("Failed to get attempt: %v", err)
 	}
@@ -83,21 +84,22 @@ func TestMongoFailedAttemptRepository_Lock(t *testing.T) {
 
 	db := client.Database("testdb")
 	repo := NewMongoFailedAttemptRepository(db)
+	tenantID := "tenant1"
 	email := "test@example.com"
 
 	// Increment to create record
-	err = repo.Increment(ctx, email)
+	err = repo.Increment(ctx, tenantID, email)
 	if err != nil {
 		t.Fatalf("Failed to increment: %v", err)
 	}
 
 	// Lock for 15 minutes
-	err = repo.Lock(ctx, email, 15*time.Minute)
+	err = repo.Lock(ctx, tenantID, email, 15*time.Minute)
 	if err != nil {
 		t.Fatalf("Failed to lock: %v", err)
 	}
 
-	attempt, err := repo.Get(ctx, email)
+	attempt, err := repo.Get(ctx, tenantID, email)
 	if err != nil {
 		t.Fatalf("Failed to get attempt: %v", err)
 	}
@@ -135,16 +137,17 @@ func TestMongoFailedAttemptRepository_Clear(t *testing.T) {
 
 	db := client.Database("testdb")
 	repo := NewMongoFailedAttemptRepository(db)
+	tenantID := "tenant1"
 	email := "test@example.com"
 
 	// Create record
-	err = repo.Increment(ctx, email)
+	err = repo.Increment(ctx, tenantID, email)
 	if err != nil {
 		t.Fatalf("Failed to increment: %v", err)
 	}
 
 	// Verify it exists
-	attempt, err := repo.Get(ctx, email)
+	attempt, err := repo.Get(ctx, tenantID, email)
 	if err != nil {
 		t.Fatalf("Failed to get attempt: %v", err)
 	}
@@ -153,13 +156,13 @@ func TestMongoFailedAttemptRepository_Clear(t *testing.T) {
 	}
 
 	// Clear it
-	err = repo.Clear(ctx, email)
+	err = repo.Clear(ctx, tenantID, email)
 	if err != nil {
 		t.Fatalf("Failed to clear: %v", err)
 	}
 
 	// Verify it's gone
-	attempt, err = repo.Get(ctx, email)
+	attempt, err = repo.Get(ctx, tenantID, email)
 	if err != nil {
 		t.Fatalf("Failed to get attempt: %v", err)
 	}
@@ -186,8 +189,9 @@ func TestMongoFailedAttemptRepository_Get_NonExistent(t *testing.T) {
 
 	db := client.Database("testdb")
 	repo := NewMongoFailedAttemptRepository(db)
+	tenantID := "tenant1"
 
-	attempt, err := repo.Get(ctx, "nonexistent@example.com")
+	attempt, err := repo.Get(ctx, tenantID, "nonexistent@example.com")
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
 	}
@@ -215,17 +219,18 @@ func TestFailedAttempts_AccountLockout(t *testing.T) {
 
 	db := client.Database("testdb")
 	repo := NewMongoFailedAttemptRepository(db)
+	tenantID := "tenant1"
 	email := "test@example.com"
 
 	// Simulate 5 failed attempts
 	for i := 0; i < 5; i++ {
-		err := repo.Increment(ctx, email)
+		err := repo.Increment(ctx, tenantID, email)
 		if err != nil {
 			t.Fatalf("Failed to increment attempt %d: %v", i+1, err)
 		}
 	}
 
-	attempt, err := repo.Get(ctx, email)
+	attempt, err := repo.Get(ctx, tenantID, email)
 	if err != nil {
 		t.Fatalf("Failed to get attempt: %v", err)
 	}
@@ -235,13 +240,13 @@ func TestFailedAttempts_AccountLockout(t *testing.T) {
 	}
 
 	// Lock the account
-	err = repo.Lock(ctx, email, 15*time.Minute)
+	err = repo.Lock(ctx, tenantID, email, 15*time.Minute)
 	if err != nil {
 		t.Fatalf("Failed to lock account: %v", err)
 	}
 
 	// Verify locked
-	attempt, err = repo.Get(ctx, email)
+	attempt, err = repo.Get(ctx, tenantID, email)
 	if err != nil {
 		t.Fatalf("Failed to get attempt: %v", err)
 	}
@@ -269,13 +274,14 @@ func TestMongoFailedAttemptRepository_IncrementAndLockIfNeeded(t *testing.T) {
 
 	db := client.Database("testdb")
 	repo := NewMongoFailedAttemptRepository(db)
+	tenantID := "tenant1"
 	email := "test@example.com"
 	maxAttempts := 5
 	lockDuration := 15 * time.Minute
 
 	// First 4 attempts should not lock
 	for i := 0; i < 4; i++ {
-		locked, err := repo.IncrementAndLockIfNeeded(ctx, email, maxAttempts, lockDuration)
+		locked, err := repo.IncrementAndLockIfNeeded(ctx, tenantID, email, maxAttempts, lockDuration)
 		if err != nil {
 			t.Fatalf("Failed on attempt %d: %v", i+1, err)
 		}
@@ -284,7 +290,7 @@ func TestMongoFailedAttemptRepository_IncrementAndLockIfNeeded(t *testing.T) {
 		}
 	}
 
-	attempt, err := repo.Get(ctx, email)
+	attempt, err := repo.Get(ctx, tenantID, email)
 	if err != nil {
 		t.Fatalf("Failed to get attempt: %v", err)
 	}
@@ -296,7 +302,7 @@ func TestMongoFailedAttemptRepository_IncrementAndLockIfNeeded(t *testing.T) {
 	}
 
 	// 5th attempt should lock
-	locked, err := repo.IncrementAndLockIfNeeded(ctx, email, maxAttempts, lockDuration)
+	locked, err := repo.IncrementAndLockIfNeeded(ctx, tenantID, email, maxAttempts, lockDuration)
 	if err != nil {
 		t.Fatalf("Failed on 5th attempt: %v", err)
 	}
@@ -304,7 +310,7 @@ func TestMongoFailedAttemptRepository_IncrementAndLockIfNeeded(t *testing.T) {
 		t.Error("Account should be locked on 5th attempt")
 	}
 
-	attempt, err = repo.Get(ctx, email)
+	attempt, err = repo.Get(ctx, tenantID, email)
 	if err != nil {
 		t.Fatalf("Failed to get attempt: %v", err)
 	}

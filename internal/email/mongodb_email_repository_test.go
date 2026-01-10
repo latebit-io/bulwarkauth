@@ -46,13 +46,14 @@ func TestDefaultEmailRepository_Create(t *testing.T) {
 		</p></body></html>`
 
 	emailRepo := NewMongoDbEmailRepository(db)
-	err = emailRepo.Create(context.TODO(), "test", template)
+	tenantID := "tenant1"
+	err = emailRepo.Create(context.TODO(), tenantID, "test", template)
 
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	readTemplate, err := emailRepo.Read(context.TODO(), "test")
+	readTemplate, err := emailRepo.Read(context.TODO(), tenantID, "test")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -21,17 +21,17 @@ func (_m *MockEmailService) EXPECT() *MockEmailService_Expecter {
 	return &MockEmailService_Expecter{mock: &_m.Mock}
 }
 
-// SendForgotPasswordEmail provides a mock function with given fields: ctx, email, forgotToken
-func (_m *MockEmailService) SendForgotPasswordEmail(ctx context.Context, email string, forgotToken string) error {
-	ret := _m.Called(ctx, email, forgotToken)
+// SendForgotPasswordEmail provides a mock function with given fields: ctx, tenantID, email, forgotToken
+func (_m *MockEmailService) SendForgotPasswordEmail(ctx context.Context, tenantID string, email string, forgotToken string) error {
+	ret := _m.Called(ctx, tenantID, email, forgotToken)
 
 	if len(ret) == 0 {
 		panic("no return value specified for SendForgotPasswordEmail")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, string) error); ok {
-		r0 = rf(ctx, email, forgotToken)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string) error); ok {
+		r0 = rf(ctx, tenantID, email, forgotToken)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -46,15 +46,16 @@ type MockEmailService_SendForgotPasswordEmail_Call struct {
 
 // SendForgotPasswordEmail is a helper method to define mock.On call
 //   - ctx context.Context
+//   - tenantID string
 //   - email string
 //   - forgotToken string
-func (_e *MockEmailService_Expecter) SendForgotPasswordEmail(ctx interface{}, email interface{}, forgotToken interface{}) *MockEmailService_SendForgotPasswordEmail_Call {
-	return &MockEmailService_SendForgotPasswordEmail_Call{Call: _e.mock.On("SendForgotPasswordEmail", ctx, email, forgotToken)}
+func (_e *MockEmailService_Expecter) SendForgotPasswordEmail(ctx interface{}, tenantID interface{}, email interface{}, forgotToken interface{}) *MockEmailService_SendForgotPasswordEmail_Call {
+	return &MockEmailService_SendForgotPasswordEmail_Call{Call: _e.mock.On("SendForgotPasswordEmail", ctx, tenantID, email, forgotToken)}
 }
 
-func (_c *MockEmailService_SendForgotPasswordEmail_Call) Run(run func(ctx context.Context, email string, forgotToken string)) *MockEmailService_SendForgotPasswordEmail_Call {
+func (_c *MockEmailService_SendForgotPasswordEmail_Call) Run(run func(ctx context.Context, tenantID string, email string, forgotToken string)) *MockEmailService_SendForgotPasswordEmail_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(string), args[2].(string))
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(string))
 	})
 	return _c
 }
@@ -64,22 +65,22 @@ func (_c *MockEmailService_SendForgotPasswordEmail_Call) Return(_a0 error) *Mock
 	return _c
 }
 
-func (_c *MockEmailService_SendForgotPasswordEmail_Call) RunAndReturn(run func(context.Context, string, string) error) *MockEmailService_SendForgotPasswordEmail_Call {
+func (_c *MockEmailService_SendForgotPasswordEmail_Call) RunAndReturn(run func(context.Context, string, string, string) error) *MockEmailService_SendForgotPasswordEmail_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
-// SendMagicLinkEmail provides a mock function with given fields: ctx, email, code
-func (_m *MockEmailService) SendMagicLinkEmail(ctx context.Context, email string, code string) error {
-	ret := _m.Called(ctx, email, code)
+// SendMagicLinkEmail provides a mock function with given fields: ctx, tenantID, email, code
+func (_m *MockEmailService) SendMagicLinkEmail(ctx context.Context, tenantID string, email string, code string) error {
+	ret := _m.Called(ctx, tenantID, email, code)
 
 	if len(ret) == 0 {
 		panic("no return value specified for SendMagicLinkEmail")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, string) error); ok {
-		r0 = rf(ctx, email, code)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string) error); ok {
+		r0 = rf(ctx, tenantID, email, code)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -94,15 +95,16 @@ type MockEmailService_SendMagicLinkEmail_Call struct {
 
 // SendMagicLinkEmail is a helper method to define mock.On call
 //   - ctx context.Context
+//   - tenantID string
 //   - email string
 //   - code string
-func (_e *MockEmailService_Expecter) SendMagicLinkEmail(ctx interface{}, email interface{}, code interface{}) *MockEmailService_SendMagicLinkEmail_Call {
-	return &MockEmailService_SendMagicLinkEmail_Call{Call: _e.mock.On("SendMagicLinkEmail", ctx, email, code)}
+func (_e *MockEmailService_Expecter) SendMagicLinkEmail(ctx interface{}, tenantID interface{}, email interface{}, code interface{}) *MockEmailService_SendMagicLinkEmail_Call {
+	return &MockEmailService_SendMagicLinkEmail_Call{Call: _e.mock.On("SendMagicLinkEmail", ctx, tenantID, email, code)}
 }
 
-func (_c *MockEmailService_SendMagicLinkEmail_Call) Run(run func(ctx context.Context, email string, code string)) *MockEmailService_SendMagicLinkEmail_Call {
+func (_c *MockEmailService_SendMagicLinkEmail_Call) Run(run func(ctx context.Context, tenantID string, email string, code string)) *MockEmailService_SendMagicLinkEmail_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(string), args[2].(string))
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(string))
 	})
 	return _c
 }
@@ -112,22 +114,22 @@ func (_c *MockEmailService_SendMagicLinkEmail_Call) Return(_a0 error) *MockEmail
 	return _c
 }
 
-func (_c *MockEmailService_SendMagicLinkEmail_Call) RunAndReturn(run func(context.Context, string, string) error) *MockEmailService_SendMagicLinkEmail_Call {
+func (_c *MockEmailService_SendMagicLinkEmail_Call) RunAndReturn(run func(context.Context, string, string, string) error) *MockEmailService_SendMagicLinkEmail_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
-// SendVerificationEmail provides a mock function with given fields: ctx, email, verificationToken
-func (_m *MockEmailService) SendVerificationEmail(ctx context.Context, email string, verificationToken string) error {
-	ret := _m.Called(ctx, email, verificationToken)
+// SendVerificationEmail provides a mock function with given fields: ctx, tenantID, email, verificationToken
+func (_m *MockEmailService) SendVerificationEmail(ctx context.Context, tenantID string, email string, verificationToken string) error {
+	ret := _m.Called(ctx, tenantID, email, verificationToken)
 
 	if len(ret) == 0 {
 		panic("no return value specified for SendVerificationEmail")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, string) error); ok {
-		r0 = rf(ctx, email, verificationToken)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string) error); ok {
+		r0 = rf(ctx, tenantID, email, verificationToken)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -142,15 +144,16 @@ type MockEmailService_SendVerificationEmail_Call struct {
 
 // SendVerificationEmail is a helper method to define mock.On call
 //   - ctx context.Context
+//   - tenantID string
 //   - email string
 //   - verificationToken string
-func (_e *MockEmailService_Expecter) SendVerificationEmail(ctx interface{}, email interface{}, verificationToken interface{}) *MockEmailService_SendVerificationEmail_Call {
-	return &MockEmailService_SendVerificationEmail_Call{Call: _e.mock.On("SendVerificationEmail", ctx, email, verificationToken)}
+func (_e *MockEmailService_Expecter) SendVerificationEmail(ctx interface{}, tenantID interface{}, email interface{}, verificationToken interface{}) *MockEmailService_SendVerificationEmail_Call {
+	return &MockEmailService_SendVerificationEmail_Call{Call: _e.mock.On("SendVerificationEmail", ctx, tenantID, email, verificationToken)}
 }
 
-func (_c *MockEmailService_SendVerificationEmail_Call) Run(run func(ctx context.Context, email string, verificationToken string)) *MockEmailService_SendVerificationEmail_Call {
+func (_c *MockEmailService_SendVerificationEmail_Call) Run(run func(ctx context.Context, tenantID string, email string, verificationToken string)) *MockEmailService_SendVerificationEmail_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(string), args[2].(string))
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(string))
 	})
 	return _c
 }
@@ -160,7 +163,7 @@ func (_c *MockEmailService_SendVerificationEmail_Call) Return(_a0 error) *MockEm
 	return _c
 }
 
-func (_c *MockEmailService_SendVerificationEmail_Call) RunAndReturn(run func(context.Context, string, string) error) *MockEmailService_SendVerificationEmail_Call {
+func (_c *MockEmailService_SendVerificationEmail_Call) RunAndReturn(run func(context.Context, string, string, string) error) *MockEmailService_SendVerificationEmail_Call {
 	_c.Call.Return(run)
 	return _c
 }
