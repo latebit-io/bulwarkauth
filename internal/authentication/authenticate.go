@@ -183,7 +183,7 @@ func (a *DefaultAuthenticationService) Acknowledge(ctx context.Context, tenantID
 	}
 
 	if accessClaims.TenantID != tenantID {
-		errors.New("token invalid")
+		return errors.New("token invalid")
 	}
 
 	refreshClaims, err := a.tokens.ValidateRefreshToken(ctx, authenticated.RefreshToken)
