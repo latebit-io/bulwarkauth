@@ -9,7 +9,6 @@ import (
 	"net/smtp"
 	"os"
 
-	"github.com/latebit-io/bulwarkauth/internal/tenants"
 	"github.com/latebit-io/bulwarkauth/internal/utils"
 	"go.mongodb.org/mongo-driver/mongo"
 )
@@ -73,13 +72,11 @@ type DefaultEmailService struct {
 	templatesDir    string
 	domain          string
 	emailRepository EmailRepository
-	tenantService   tenants.TenantService
 	options         EmailOptions
 }
 
 // NewDefaultEmailService creates a an email service
-func NewDefaultEmailService(user, secret, server, port, baseUrl, templatesDir, domain string, repository EmailRepository,
-	tenantService tenants.TenantService, options EmailOptions) EmailService {
+func NewDefaultEmailService(user, secret, server, port, baseUrl, templatesDir, domain string, repository EmailRepository, options EmailOptions) *DefaultEmailService {
 	auth := smtp.PlainAuth("", user, secret, server)
 	return &DefaultEmailService{
 		auth:            auth,
@@ -89,21 +86,20 @@ func NewDefaultEmailService(user, secret, server, port, baseUrl, templatesDir, d
 		fromAddress:     "no-reply@" + domain,
 		baseUrl:         baseUrl,
 		templatesDir:    templatesDir,
-		tenantService:   tenantService,
 		options:         options,
 	}
 }
 
-func (s *DefaultEmailService) Initialize(ctx context.Context) error {
-	err := s.verification(ctx)
+func (s *DefaultEmailService) Initialize(ctx context.Context, tenantID string) error {
+	err := s.verification(ctx, tenantID)
 	if err != nil {
 		return err
 	}
-	err = s.forgot(ctx)
+	err = s.forgot(ctx, tenantID)
 	if err != nil {
 		return err
 	}
-	err = s.magic(ctx)
+	err = s.magic(ctx, tenantID)
 	if err != nil {
 		return err
 	}
@@ -111,37 +107,30 @@ func (s *DefaultEmailService) Initialize(ctx context.Context) error {
 	return nil
 }
 
-func (s *DefaultEmailService) verification(ctx context.Context) error {
+func (s *DefaultEmailService) verification(ctx context.Context, tenantID string) error {
 	templateFile, err := os.ReadFile(fmt.Sprintf("%s%s", s.templatesDir, verificationTemplate))
 	if err != nil {
 		return err
 	}
 
-	tenants, err := s.tenantService.ListTenants(ctx)
+	t, err := s.emailRepository.Read(ctx, tenantID, "verification")
 	if err != nil {
-		return err
+		if !errors.Is(err, mongo.ErrNoDocuments) {
+			return err
+		}
 	}
 
-	for _, tenant := range tenants {
-		t, err := s.emailRepository.Read(ctx, tenant.ID, "verification")
+	if t == "" {
+		err := s.emailRepository.Create(ctx, tenantID, "verification", string(templateFile))
 		if err != nil {
-			if !errors.Is(err, mongo.ErrNoDocuments) {
-				return err
-			}
-		}
-
-		if t == "" {
-			err := s.emailRepository.Create(ctx, tenant.ID, "verification", string(templateFile))
-			if err != nil {
-				return err
-			}
+			return err
 		}
 	}
 
 	return nil
 }
 
-func (s *DefaultEmailService) forgot(ctx context.Context) error {
+func (s *DefaultEmailService) forgot(ctx context.Context, tenantID string) error {
 	templateFile, err := os.ReadFile(fmt.Sprintf("%s%s", s.templatesDir, forgotTemplate))
 	if err != nil {
 		return err
@@ -164,7 +153,7 @@ func (s *DefaultEmailService) forgot(ctx context.Context) error {
 	return nil
 }
 
-func (s *DefaultEmailService) magic(ctx context.Context) error {
+func (s *DefaultEmailService) magic(ctx context.Context, tenantID string) error {
 	templateFile, err := os.ReadFile(fmt.Sprintf("%s%s", s.templatesDir, magicTemplate))
 	if err != nil {
 		return err

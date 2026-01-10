@@ -42,6 +42,7 @@ type AppConfig struct {
 	RequestsPerSecond           int
 	AuthenticationAttempts      int
 	LockoutDurationInSecs       int
+	DefaultTenantID             string
 }
 
 func NewAppConfig() (*AppConfig, error) {
@@ -105,6 +106,7 @@ func NewAppConfig() (*AppConfig, error) {
 	config.RequestsPerSecond = getEnvAsInt("REQUESTS_PER_SECOND", 20)
 	config.AuthenticationAttempts = getEnvAsInt("AUTHENTICATION_ATTEMPTS", 5)
 	config.LockoutDurationInSecs = getEnvAsInt("LOCKOUT_DURATION_IN_SEC", 15*60)
+	config.DefaultTenantID = getEnv("DEFAULT_TENANT_ID", "default")
 
 	return config, nil
 }

@@ -21,11 +21,13 @@ type Tenant struct {
 type TenantRepository interface {
 	ReadAll(ctx context.Context) ([]Tenant, error)
 	Read(ctx context.Context, tenantID string) (*Tenant, error)
+	Create(ctx context.Context, tenantID string) error
 }
 
 type TenantService interface {
 	ListTenants(ctx context.Context) ([]Tenant, error)
 	GetTenant(ctx context.Context, tenantID string) (*Tenant, error)
+	CreateDefault(ctx context.Context, tenantID string) error
 }
 
 type MongoDbTenantRepository struct {
@@ -72,6 +74,15 @@ func (t *MongoDbTenantRepository) Read(ctx context.Context, tenantID string) (*T
 	return &tenant, nil
 }
 
+func (t *MongoDbTenantRepository) Create(ctx context.Context, tenantID string) error {
+	collection := t.db.Collection(tenantCollection)
+	tenant := Tenant{
+		ID: tenantID,
+	}
+	_, err := collection.InsertOne(ctx, tenant)
+	return err
+}
+
 type DefaultTenantService struct {
 	repo TenantRepository
 }
@@ -88,4 +99,8 @@ func (s *DefaultTenantService) ListTenants(ctx context.Context) ([]Tenant, error
 
 func (s *DefaultTenantService) GetTenant(ctx context.Context, tenantID string) (*Tenant, error) {
 	return s.repo.Read(ctx, tenantID)
+}
+
+func (s *DefaultTenantService) CreateDefault(ctx context.Context, tenantID string) error {
+	return s.repo.Create(ctx, tenantID)
 }
