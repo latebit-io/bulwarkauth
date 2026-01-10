@@ -43,7 +43,7 @@ type MongodbAccountRepository struct {
 func NewMongodbAccountRepository(db *mongo.Database, encryption encryption.Encryption) *MongodbAccountRepository {
 	collection := db.Collection(accountCollection)
 	_, err := collection.Indexes().CreateOne(context.Background(), mongo.IndexModel{
-		Keys:    bson.D{{Key: "email", Value: 1}, {Key: "tenantId", Value: 1}},
+		Keys:    bson.D{{Key: "tenantId", Value: 1}, {Key: "email", Value: 1}},
 		Options: options.Index().SetUnique(true),
 	})
 	if err != nil {
