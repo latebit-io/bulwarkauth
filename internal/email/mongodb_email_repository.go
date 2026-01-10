@@ -8,12 +8,13 @@ import (
 )
 
 type EmailRepository interface {
-	Create(ctx context.Context, name, template string) error
-	Update(ctx context.Context, name, template string) error
-	Read(ctx context.Context, name string) (string, error)
+	Create(ctx context.Context, tenantID, name, template string) error
+	Update(ctx context.Context, tenantID, name, template string) error
+	Read(ctx context.Context, tenantID, name string) (string, error)
 }
 
 type EmailTemplate struct {
+	TenantID string
 	Name     string
 	Template string
 }
@@ -26,9 +27,9 @@ func NewMongoDbEmailRepository(db *mongo.Database) *MongoDbEmailRepository {
 	return &MongoDbEmailRepository{db: db}
 }
 
-func (r *MongoDbEmailRepository) Read(ctx context.Context, name string) (string, error) {
+func (r *MongoDbEmailRepository) Read(ctx context.Context, tenantID, name string) (string, error) {
 	collection := r.db.Collection("emails")
-	result := collection.FindOne(ctx, bson.M{"name": name})
+	result := collection.FindOne(ctx, bson.M{"tenantId": tenantID, "name": name})
 	if result.Err() != nil {
 		return "", result.Err()
 	}
@@ -40,9 +41,9 @@ func (r *MongoDbEmailRepository) Read(ctx context.Context, name string) (string,
 	return email.Template, nil
 }
 
-func (r *MongoDbEmailRepository) Create(ctx context.Context, name, template string) error {
+func (r *MongoDbEmailRepository) Create(ctx context.Context, tenantID, name, template string) error {
 	collection := r.db.Collection("emails")
-	_, err := collection.InsertOne(ctx, bson.M{"name": name, "template": template})
+	_, err := collection.InsertOne(ctx, bson.M{"tenantId": tenantID, "name": name, "template": template})
 
 	if err != nil {
 		return err
@@ -51,9 +52,9 @@ func (r *MongoDbEmailRepository) Create(ctx context.Context, name, template stri
 	return nil
 }
 
-func (r *MongoDbEmailRepository) Update(ctx context.Context, name, template string) error {
+func (r *MongoDbEmailRepository) Update(ctx context.Context, tenantID, name, template string) error {
 	collection := r.db.Collection("emails")
-	_, err := collection.UpdateOne(ctx, bson.M{"name": name}, bson.M{"template": template})
+	_, err := collection.UpdateOne(ctx, bson.M{"tenantId": tenantID, "name": name}, bson.M{"template": template})
 	if err != nil {
 		return err
 	}

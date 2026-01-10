@@ -9,6 +9,7 @@ import (
 	"net/smtp"
 	"os"
 
+	"github.com/latebit-io/bulwarkauth/internal/tenants"
 	"github.com/latebit-io/bulwarkauth/internal/utils"
 	"go.mongodb.org/mongo-driver/mongo"
 )
@@ -53,9 +54,9 @@ type EmailOptions struct {
 
 // EmailService email service contract
 type EmailService interface {
-	SendVerificationEmail(ctx context.Context, email, verificationToken string) error
-	SendForgotPasswordEmail(ctx context.Context, email, forgotToken string) error
-	SendMagicLinkEmail(ctx context.Context, email, code string) error
+	SendVerificationEmail(ctx context.Context, tenantID, email, verificationToken string) error
+	SendForgotPasswordEmail(ctx context.Context, tenantID, email, forgotToken string) error
+	SendMagicLinkEmail(ctx context.Context, tenantID, email, code string) error
 }
 
 type EmailTemplateProvider interface {
@@ -72,11 +73,13 @@ type DefaultEmailService struct {
 	templatesDir    string
 	domain          string
 	emailRepository EmailRepository
+	tenantService   tenants.TenantService
 	options         EmailOptions
 }
 
 // NewDefaultEmailService creates a an email service
-func NewDefaultEmailService(user, secret, server, port, baseUrl, templatesDir, domain string, repository EmailRepository, options EmailOptions) *DefaultEmailService {
+func NewDefaultEmailService(user, secret, server, port, baseUrl, templatesDir, domain string, repository EmailRepository,
+	tenantService tenants.TenantService, options EmailOptions) EmailService {
 	auth := smtp.PlainAuth("", user, secret, server)
 	return &DefaultEmailService{
 		auth:            auth,
@@ -86,6 +89,7 @@ func NewDefaultEmailService(user, secret, server, port, baseUrl, templatesDir, d
 		fromAddress:     "no-reply@" + domain,
 		baseUrl:         baseUrl,
 		templatesDir:    templatesDir,
+		tenantService:   tenantService,
 		options:         options,
 	}
 }
@@ -113,17 +117,24 @@ func (s *DefaultEmailService) verification(ctx context.Context) error {
 		return err
 	}
 
-	t, err := s.emailRepository.Read(ctx, "verification")
+	tenants, err := s.tenantService.ListTenants(ctx)
 	if err != nil {
-		if !errors.Is(err, mongo.ErrNoDocuments) {
-			return err
-		}
+		return err
 	}
 
-	if t == "" {
-		err := s.emailRepository.Create(ctx, "verification", string(templateFile))
+	for _, tenant := range tenants {
+		t, err := s.emailRepository.Read(ctx, tenant.ID, "verification")
 		if err != nil {
-			return err
+			if !errors.Is(err, mongo.ErrNoDocuments) {
+				return err
+			}
+		}
+
+		if t == "" {
+			err := s.emailRepository.Create(ctx, tenant.ID, "verification", string(templateFile))
+			if err != nil {
+				return err
+			}
 		}
 	}
 
@@ -136,7 +147,7 @@ func (s *DefaultEmailService) forgot(ctx context.Context) error {
 		return err
 	}
 
-	t, err := s.emailRepository.Read(ctx, "forgot")
+	t, err := s.emailRepository.Read(ctx, tenantID, "forgot")
 	if err != nil {
 		if !errors.Is(err, mongo.ErrNoDocuments) {
 			return err
@@ -144,7 +155,7 @@ func (s *DefaultEmailService) forgot(ctx context.Context) error {
 	}
 
 	if t == "" {
-		err := s.emailRepository.Create(ctx, "forgot", string(templateFile))
+		err := s.emailRepository.Create(ctx, tenantID, "forgot", string(templateFile))
 		if err != nil {
 			return err
 		}
@@ -159,7 +170,7 @@ func (s *DefaultEmailService) magic(ctx context.Context) error {
 		return err
 	}
 
-	t, err := s.emailRepository.Read(ctx, "magic")
+	t, err := s.emailRepository.Read(ctx, tenantID, "magic")
 	if err != nil {
 		if !errors.Is(err, mongo.ErrNoDocuments) {
 			return err
@@ -167,7 +178,7 @@ func (s *DefaultEmailService) magic(ctx context.Context) error {
 	}
 
 	if t == "" {
-		err := s.emailRepository.Create(ctx, "magic", string(templateFile))
+		err := s.emailRepository.Create(ctx, tenantID, "magic", string(templateFile))
 		if err != nil {
 			return err
 		}
@@ -177,7 +188,7 @@ func (s *DefaultEmailService) magic(ctx context.Context) error {
 }
 
 // SendVerificationEmail will send out the verification email when a user signs up to activate their account
-func (s *DefaultEmailService) SendVerificationEmail(ctx context.Context, email, verificationToken string) error {
+func (s *DefaultEmailService) SendVerificationEmail(ctx context.Context, tenantID, email, verificationToken string) error {
 	subject := "Please verify account"
 
 	err := utils.ValidateEmail(email)
@@ -185,7 +196,7 @@ func (s *DefaultEmailService) SendVerificationEmail(ctx context.Context, email, 
 		return err
 	}
 
-	t, err := s.emailRepository.Read(ctx, "verification")
+	t, err := s.emailRepository.Read(ctx, tenantID, "verification")
 
 	if err != nil {
 		return err
@@ -217,9 +228,9 @@ func (s *DefaultEmailService) SendVerificationEmail(ctx context.Context, email, 
 	return nil
 }
 
-func (s *DefaultEmailService) SendForgotPasswordEmail(ctx context.Context, email, forgotToken string) error {
+func (s *DefaultEmailService) SendForgotPasswordEmail(ctx context.Context, tenantID, email, forgotToken string) error {
 	subject := "Password reset requested"
-	t, err := s.emailRepository.Read(ctx, "forgot")
+	t, err := s.emailRepository.Read(ctx, tenantID, "forgot")
 
 	if err != nil {
 		return err
@@ -248,9 +259,9 @@ func (s *DefaultEmailService) SendForgotPasswordEmail(ctx context.Context, email
 	return nil
 }
 
-func (s *DefaultEmailService) SendMagicLinkEmail(ctx context.Context, email, code string) error {
+func (s *DefaultEmailService) SendMagicLinkEmail(ctx context.Context, tenantID, email, code string) error {
 	subject := "Login link requested"
-	t, err := s.emailRepository.Read(ctx, "magic")
+	t, err := s.emailRepository.Read(ctx, tenantID, "magic")
 
 	if err != nil {
 		return err

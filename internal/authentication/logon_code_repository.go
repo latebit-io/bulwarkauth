@@ -10,16 +10,17 @@ import (
 )
 
 type LogonCode struct {
-	Email   string    `bson:"email"`
-	Code    string    `bson:"code"`
-	Expires time.Time `bson:"expires"`
-	Created time.Time `bson:"created"`
+	TenantID string    `bson:"tenantID"`
+	Email    string    `bson:"email"`
+	Code     string    `bson:"code"`
+	Expires  time.Time `bson:"expires"`
+	Created  time.Time `bson:"created"`
 }
 
 type LogonCodeRepository interface {
-	Create(ctx context.Context, email string, code string, expires time.Time) error
-	Delete(ctx context.Context, email string, code string) error
-	Read(ctx context.Context, email string) (*LogonCode, error)
+	Create(ctx context.Context, tenantID, email string, code string, expires time.Time) error
+	Delete(ctx context.Context, tenantID, email string, code string) error
+	Read(ctx context.Context, tenantID, email string) (*LogonCode, error)
 }
 
 const (
@@ -34,9 +35,9 @@ func NewDefaultLogonCodeRepository(db *mongo.Database) *DefaultLogonCodeReposito
 	return &DefaultLogonCodeRepository{db}
 }
 
-func (c *DefaultLogonCodeRepository) Create(ctx context.Context, email, code string, expires time.Time) error {
+func (c *DefaultLogonCodeRepository) Create(ctx context.Context, tenantID, email, code string, expires time.Time) error {
 	collection := c.db.Collection(logonCodeCollectionName)
-	filter := bson.D{{"email", email}}
+	filter := bson.M{"email": email}
 	update := bson.D{
 		{"$set", bson.D{
 			{"code", code},
@@ -53,19 +54,19 @@ func (c *DefaultLogonCodeRepository) Create(ctx context.Context, email, code str
 	return nil
 }
 
-func (c *DefaultLogonCodeRepository) Delete(ctx context.Context, email string, code string) error {
+func (c *DefaultLogonCodeRepository) Delete(ctx context.Context, tenantID, email string, code string) error {
 	collection := c.db.Collection(logonCodeCollectionName)
-	_, err := collection.DeleteOne(ctx, bson.D{{"email", email}, {"code", code}})
+	_, err := collection.DeleteOne(ctx, bson.M{"tenantId": tenantID, "email": email, "code": code})
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (c *DefaultLogonCodeRepository) Read(ctx context.Context, email string) (*LogonCode, error) {
+func (c *DefaultLogonCodeRepository) Read(ctx context.Context, tenantID, email string) (*LogonCode, error) {
 	collection := c.db.Collection(logonCodeCollectionName)
 	var logonCode LogonCode
-	err := collection.FindOne(ctx, bson.D{{"email", email}}).Decode(&logonCode)
+	err := collection.FindOne(ctx, bson.M{"tenantId": tenantID, "email": email}).Decode(&logonCode)
 	if err != nil {
 		return nil, err
 	}
