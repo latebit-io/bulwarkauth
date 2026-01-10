@@ -8,7 +8,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/joho/godotenv v1.5.1
 	github.com/labstack/echo/v4 v4.13.3
-	github.com/latebit-io/bulwark-auth-guard v0.1.0
+	github.com/latebit-io/bulwark-auth-guard v0.2.1
 	github.com/latebit-io/go-hog v1.1.1
 	github.com/stretchr/testify v1.10.0
 	github.com/tryvium-travels/memongo v0.12.0

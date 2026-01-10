@@ -4,13 +4,15 @@
 
 A complete integration test suite that validates BulwarkAuth using the [bulwark-auth-guard](https://github.com/latebit-io/bulwark-auth-guard) client library.
 
-**9 test cases covering:**
+**13 test cases covering:**
 - Account creation and verification
 - Password authentication flows
 - Magic link (passwordless) authentication
 - Multi-device sessions
 - Token renewal and revocation
 - Password changes
+- Account lockout protection
+- Multi-tenant support
 
 ## Running the Tests
 
@@ -56,6 +58,10 @@ go test -v ./test/integration/...
 | `TestMultiDeviceAuthentication` | Multiple device sessions with independent tokens |
 | `TestTokenRenewal` | Multiple token renewal cycles |
 | `TestPasswordChange` | Password update with access token |
+| `TestAccountLockoutAfterFailedAttempts` | Account locks after 5 failed password attempts |
+| `TestAccountLockoutMagicCode` | Account locks after 5 failed magic code attempts |
+| `TestAccountLockoutClearsOnSuccessfulLogin` | Failed attempts counter resets on successful login |
+| `TestAccountLockoutExpiresAndResetsCounter` | Lockout expires and counter resets after duration |
 
 ## Why This Matters
 
@@ -74,25 +80,32 @@ The tests:
 
 **Example:**
 ```go
+const tenantID = "default"  // Or your specific tenant ID
+
 // Create account
 email := generateTestEmail()
-err := guard.Account.Create(ctx, email, "Password123!")
+err := guard.Account.Create(ctx, tenantID, email, "Password123!")
 
 // Get verification code from database (simulates clicking email link)
 token, err := getVerificationToken(ctx, email)
 
 // Verify account
-err = guard.Account.Verify(ctx, email, token)
+err = guard.Account.Verify(ctx, tenantID, email, token)
 
 // Authenticate
-auth, err := guard.Authenticate.Password(ctx, email, password, clientID)
+clientID := generateClientID()
+auth, err := guard.Authenticate.Password(ctx, tenantID, email, password, clientID)
+
+// Acknowledge tokens
+err = guard.Authenticate.Acknowledge(ctx, tenantID, auth)
 ```
 
 ## Configuration
 
 Default endpoints (in `integration_test.go`):
 - **BulwarkAuth**: `http://localhost:8080`
-- **MongoDB**: `mongodb://localhost:27017`
+- **MailHog**: `http://localhost:8025`
+- **Tenant ID**: `"default"`
 
 To change, modify the constants at the top of the file.
 

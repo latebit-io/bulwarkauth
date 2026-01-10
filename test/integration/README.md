@@ -4,12 +4,13 @@ Integration tests for BulwarkAuth using the [bulwark-auth-guard](https://github.
 
 ## Overview
 
-These tests validate that the BulwarkAuth API works correctly with the actual Go client that users will use. This ensures:
+These tests validate that the BulwarkAuth API works correctly with the actual Go client that users will use, including multi-tenant support. This ensures:
 
 - **API compatibility** - The server and client stay in sync
 - **Real-world validation** - Tests use the actual client library
 - **Breaking change detection** - Catches API changes that would break the client
 - **Client refactoring safety** - Ensures client changes don't break functionality
+- **Multi-tenant validation** - Ensures tenant isolation works correctly
 
 ## Prerequisites
 
@@ -83,10 +84,24 @@ go test -cover ./test/integration/...
 - `TestAuthenticatePasswordFlow` - Full password auth flow (authenticate → acknowledge → validate → renew → revoke)
 - `TestMultiDeviceAuthentication` - Multiple device sessions with independent tokens
 - `TestTokenRenewal` - Multiple token renewal cycles
+- `TestPasswordChange` - Password update with access token
 
 ### Magic Link Authentication
 - `TestAuthenticateMagicCode` - Passwordless auth with 6-digit codes
 - `TestAuthenticateMagicCodeFail` - Error handling for non-existent accounts
+
+### Account Lockout
+- `TestAccountLockoutAfterFailedAttempts` - Account lockout after 5 failed password attempts
+- `TestAccountLockoutMagicCode` - Account lockout after 5 failed magic code attempts
+- `TestAccountLockoutClearsOnSuccessfulLogin` - Failed attempts counter reset on successful login
+- `TestAccountLockoutExpiresAndResetsCounter` - Lockout expiration and counter reset
+
+### Multi-Tenant Support
+
+All tests use a tenant ID (`"default"`) to validate multi-tenant functionality. The tests ensure:
+- Accounts are isolated by tenant
+- Tokens are scoped to tenants
+- Authentication works within tenant boundaries
 
 ## How It Works
 
@@ -100,22 +115,28 @@ The tests:
 ### Example Flow
 
 ```go
+const tenantID = "default"  // Or your specific tenant ID
+
 // Create account
 email := generateTestEmail()
 password := "TestPassword123!"
-err := client.Account.Create(ctx, email, password)
+err := guard.Account.Create(ctx, tenantID, email, password)
 
 // Get verification token from database (simulates clicking email link)
 token, err := getVerificationToken(ctx, email)
 
 // Verify account
-err = client.Account.Verify(ctx, email, token)
+err = guard.Account.Verify(ctx, tenantID, email, token)
 
 // Authenticate
-auth, err := client.Authenticate.Password(ctx, email, clientID, password)
+clientID := generateClientID()
+auth, err := guard.Authenticate.Password(ctx, tenantID, email, password, clientID)
+
+// Acknowledge tokens
+err = guard.Authenticate.Acknowledge(ctx, tenantID, auth)
 
 // Use tokens
-claims, err := client.Authenticate.ValidateAccessToken(ctx, auth.AccessToken)
+claims, err := guard.Authenticate.ValidateAccessToken(ctx, tenantID, auth.AccessToken)
 ```
 
 ## Helper Functions
@@ -172,12 +193,13 @@ Tests use these constants (defined in `integration_test.go`):
 
 ```go
 const (
-    baseURI = "http://localhost:8080"  // BulwarkAuth API endpoint
-    dbURI   = "mongodb://localhost:27017"  // MongoDB connection
+    baseURI    = "http://localhost:8080"  // BulwarkAuth API endpoint
+    mailHogURI = "http://localhost:8025"  // MailHog UI for email inspection
+    tenantID   = "default"                // Tenant ID for all tests
 )
 ```
 
-To test against different endpoints, modify these constants.
+To test against different endpoints or tenants, modify these constants.
 
 ## Troubleshooting
 
