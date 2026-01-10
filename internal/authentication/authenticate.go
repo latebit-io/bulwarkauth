@@ -161,7 +161,7 @@ func (a *DefaultAuthenticationService) Authenticate(ctx context.Context, tenantI
 		return nil, err
 	}
 
-	accessToken, err := a.tokens.CreateAccessToken(ctx, email, tenantID, clientID, account.Roles)
+	accessToken, err := a.tokens.CreateAccessToken(ctx, tenantID, email, clientID, account.Roles)
 	if err != nil {
 		return nil, err
 	}
