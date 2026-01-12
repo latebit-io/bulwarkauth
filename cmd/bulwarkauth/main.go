@@ -95,7 +95,7 @@ func main() {
 		})
 	wd, _ := os.Getwd()
 	logger.Info("working directory: ", "dir", wd)
-	defaultTenantID := config.DefaultTenantID
+	defaultTenantID := "default"
 	err = createDefaultTenantID(context.Background(), tenantService, defaultTenantID)
 	if err != nil {
 		panic(err)
@@ -155,15 +155,9 @@ func createDefaultTenantID(ctx context.Context, tenantService tenants.TenantServ
 	}
 
 	if len(existingTenants) == 0 {
-		return tenantService.CreateDefault(ctx, defaultTenantID)
+		return tenantService.CreateDefault(ctx)
 	}
-
-	for _, tenant := range existingTenants {
-		if tenant.ID == defaultTenantID {
-			return nil
-		}
-	}
-	return tenantService.CreateDefault(ctx, defaultTenantID)
+	return nil
 }
 
 func corsSetting(service *echo.Echo, config *AppConfig, logger *slog.Logger) {
