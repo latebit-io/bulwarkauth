@@ -2,6 +2,7 @@ package tenants
 
 import (
 	"context"
+	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -12,22 +13,24 @@ const (
 )
 
 type Tenant struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Domain      string `json:"domain"`
+	ID          string    `json:"id"`
+	Name        string    `json:"name"`
+	Description string    `json:"description"`
+	Domain      string    `json:"domain"`
+	Created     time.Time `json:"created"`
+	Modified    time.Time `json:"modified"`
 }
 
 type TenantRepository interface {
 	ReadAll(ctx context.Context) ([]Tenant, error)
 	Read(ctx context.Context, tenantID string) (*Tenant, error)
-	Create(ctx context.Context, tenantID string) error
+	Create(ctx context.Context) error
 }
 
 type TenantService interface {
 	ListTenants(ctx context.Context) ([]Tenant, error)
 	GetTenant(ctx context.Context, tenantID string) (*Tenant, error)
-	CreateDefault(ctx context.Context, tenantID string) error
+	CreateDefault(ctx context.Context) error
 }
 
 type MongoDbTenantRepository struct {
@@ -74,12 +77,18 @@ func (t *MongoDbTenantRepository) Read(ctx context.Context, tenantID string) (*T
 	return &tenant, nil
 }
 
-func (t *MongoDbTenantRepository) Create(ctx context.Context, tenantID string) error {
+func (t *MongoDbTenantRepository) Create(ctx context.Context) error {
 	collection := t.db.Collection(tenantCollection)
+
 	tenant := Tenant{
-		ID: tenantID,
+		ID:          "default",
+		Name:        "default",
+		Description: "default",
+		Created:     time.Now(),
+		Modified:    time.Now(),
 	}
 	_, err := collection.InsertOne(ctx, tenant)
+
 	return err
 }
 
@@ -101,6 +110,6 @@ func (s *DefaultTenantService) GetTenant(ctx context.Context, tenantID string) (
 	return s.repo.Read(ctx, tenantID)
 }
 
-func (s *DefaultTenantService) CreateDefault(ctx context.Context, tenantID string) error {
-	return s.repo.Create(ctx, tenantID)
+func (s *DefaultTenantService) CreateDefault(ctx context.Context) error {
+	return s.repo.Create(ctx)
 }

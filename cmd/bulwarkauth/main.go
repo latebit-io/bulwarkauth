@@ -155,15 +155,9 @@ func createDefaultTenantID(ctx context.Context, tenantService tenants.TenantServ
 	}
 
 	if len(existingTenants) == 0 {
-		return tenantService.CreateDefault(ctx, defaultTenantID)
+		return tenantService.CreateDefault(ctx)
 	}
-
-	for _, tenant := range existingTenants {
-		if tenant.ID == defaultTenantID {
-			return nil
-		}
-	}
-	return tenantService.CreateDefault(ctx, defaultTenantID)
+	return nil
 }
 
 func corsSetting(service *echo.Echo, config *AppConfig, logger *slog.Logger) {
