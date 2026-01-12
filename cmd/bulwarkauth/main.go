@@ -95,7 +95,7 @@ func main() {
 		})
 	wd, _ := os.Getwd()
 	logger.Info("working directory: ", "dir", wd)
-	defaultTenantID := config.DefaultTenantID
+	defaultTenantID := "default"
 	err = createDefaultTenantID(context.Background(), tenantService, defaultTenantID)
 	if err != nil {
 		panic(err)
