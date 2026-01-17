@@ -21,24 +21,27 @@ const (
 
 // Verification data for verification emails
 type Verification struct {
-	Email  string
-	Token  string
-	URL    string
-	Domain string
+	TenantID string
+	Email    string
+	Token    string
+	URL      string
+	Domain   string
 }
 
 type Forgot struct {
-	Email  string
-	Token  string
-	URL    string
-	Domain string
+	TenantID string
+	Email    string
+	Token    string
+	URL      string
+	Domain   string
 }
 
 type Magic struct {
-	Email  string
-	Code   string
-	URL    string
-	Domain string
+	TenantID string
+	Email    string
+	Code     string
+	URL      string
+	Domain   string
 }
 
 // EmailOptions for email server connections
@@ -194,7 +197,7 @@ func (s *DefaultEmailService) SendVerificationEmail(ctx context.Context, tenantI
 	tmpl := template.Must(template.New("verification").Parse(t))
 
 	var buf bytes.Buffer
-	if err = tmpl.Execute(&buf, Verification{Email: email, Token: verificationToken, Domain: s.baseUrl, URL: s.options.VerificationUrl}); err != nil {
+	if err = tmpl.Execute(&buf, Verification{TenantID: tenantID, Email: email, Token: verificationToken, Domain: s.baseUrl, URL: s.options.VerificationUrl}); err != nil {
 		return err
 	}
 	if s.options.TestMode {
@@ -228,7 +231,7 @@ func (s *DefaultEmailService) SendForgotPasswordEmail(ctx context.Context, tenan
 	tmpl := template.Must(template.New("forgot").Parse(t))
 
 	var buf bytes.Buffer
-	if err = tmpl.Execute(&buf, Forgot{Email: email, Token: forgotToken, Domain: s.baseUrl, URL: s.options.ForgotUrl}); err != nil {
+	if err = tmpl.Execute(&buf, Forgot{TenantID: tenantID, Email: email, Token: forgotToken, Domain: s.baseUrl, URL: s.options.ForgotUrl}); err != nil {
 		return err
 	}
 	if s.options.TestMode {
@@ -259,7 +262,7 @@ func (s *DefaultEmailService) SendMagicLinkEmail(ctx context.Context, tenantID, 
 	tmpl := template.Must(template.New("magic").Parse(t))
 
 	var buf bytes.Buffer
-	if err = tmpl.Execute(&buf, Magic{Email: email, Code: code, Domain: s.baseUrl, URL: s.options.MagicUrl}); err != nil {
+	if err = tmpl.Execute(&buf, Magic{TenantID: tenantID, Email: email, Code: code, Domain: s.baseUrl, URL: s.options.MagicUrl}); err != nil {
 		return err
 	}
 	if s.options.TestMode {
