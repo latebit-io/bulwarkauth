@@ -171,7 +171,7 @@ func (a DefaultAccountService) Register(ctx context.Context, tenantID, email str
 	}
 	account, err := a.accountRepository.Read(ctx, tenantID, email)
 	if err != nil {
-		return errors.Join(fmt.Errorf("account created cannot read %s", email), err)
+		return errors.Join(fmt.Errorf("failed to read account after creation %s", email), err)
 	}
 
 	err = a.emailService.SendVerificationEmail(ctx, tenantID, email, account.VerificationToken)
