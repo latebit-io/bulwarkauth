@@ -167,7 +167,7 @@ func (a DefaultAccountService) Register(ctx context.Context, tenantID, email str
 	}
 	err = a.accountRepository.Create(ctx, tenantID, email, password)
 	if err != nil {
-		return errors.Join(fmt.Errorf("cannot create the account %s", email), err)
+		return errors.Join(fmt.Errorf("cannot create account for %s", email), err)
 	}
 	account, err := a.accountRepository.Read(ctx, tenantID, email)
 	if err != nil {
