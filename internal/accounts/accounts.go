@@ -3,6 +3,7 @@ package accounts
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/latebit-io/bulwarkauth/internal/tokens"
@@ -166,13 +167,18 @@ func (a DefaultAccountService) Register(ctx context.Context, tenantID, email str
 	}
 	err = a.accountRepository.Create(ctx, tenantID, email, password)
 	if err != nil {
-		return err
+		return errors.Join(fmt.Errorf("cannot create the account %s", email), err)
 	}
 	account, err := a.accountRepository.Read(ctx, tenantID, email)
 	if err != nil {
-		return err
+		return errors.Join(fmt.Errorf("account created cannot read %s", email), err)
 	}
-	return a.emailService.SendVerificationEmail(ctx, tenantID, email, account.VerificationToken)
+
+	err = a.emailService.SendVerificationEmail(ctx, tenantID, email, account.VerificationToken)
+	if err != nil {
+		return errors.Join(fmt.Errorf("cannot send verification email %s", email), err)
+	}
+	return nil
 }
 
 // Verify when an account ot email is changed an account will need to be verified
