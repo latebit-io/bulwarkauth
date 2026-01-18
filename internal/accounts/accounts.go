@@ -176,7 +176,7 @@ func (a DefaultAccountService) Register(ctx context.Context, tenantID, email str
 
 	err = a.emailService.SendVerificationEmail(ctx, tenantID, email, account.VerificationToken)
 	if err != nil {
-		return errors.Join(fmt.Errorf("cannot send verification email %s", email), err)
+		return errors.Join(fmt.Errorf("cannot send verification email to %s", email), err)
 	}
 	return nil
 }
