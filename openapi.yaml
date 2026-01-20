@@ -1,0 +1,1031 @@
+openapi: 3.0.0
+info:
+  title: BulwarkAuth API
+  description: |
+    BulwarkAuth is a developer-focused JWT authentication/authorization API with built-in multi-tenant support.
+
+    It provides:
+    - Passwordless authentication (magic links)
+    - Password-based authentication
+    - Email verification
+    - Account lockout protection
+    - Social sign-in (Google)
+    - Token management with refresh tokens
+    - RFC 7807 compliant error responses
+
+    ## Multi-Tenant Architecture
+    All requests require a `tenantId` parameter. For single-tenant applications, use `tenantId: "default"`.
+
+    ## Authentication
+    - **API Key** (optional): Pass `X-BULWARK-API-KEY` header for protected endpoints
+    - **JWT**: Access tokens use RS256 signing and are tenant-specific
+  version: 1.0.0
+  contact:
+    name: BulwarkAuth Support
+    url: https://github.com/latebit-io/bulwarkauth
+  license:
+    name: MIT
+
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+  - url: https://api.example.com
+    description: Production server (configure as needed)
+
+tags:
+  - name: Health
+    description: Service health check
+  - name: Accounts
+    description: Account creation, management, and password recovery
+  - name: Authentication
+    description: User authentication and token management
+  - name: Magic Link
+    description: Passwordless authentication with magic links
+  - name: Social
+    description: Social provider authentication
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      description: Returns service health status
+      operationId: getHealth
+      tags:
+        - Health
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: OK
+
+  /api/accounts:
+    post:
+      summary: Create account
+      description: |
+        Register a new user account with email and password.
+
+        Rate limited: Yes
+      operationId: createAccount
+      tags:
+        - Accounts
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - tenantId
+                - email
+                - password
+              properties:
+                tenantId:
+                  type: string
+                  description: Tenant identifier
+                  example: default
+                email:
+                  type: string
+                  format: email
+                  description: User email address
+                  example: user@example.com
+                password:
+                  type: string
+                  format: password
+                  description: User password (will be encrypted)
+                  example: SecurePassword123!
+      responses:
+        '201':
+          description: Account created successfully
+        '400':
+          description: Invalid request or validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Account already exists with this email
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+  /api/accounts/verify:
+    post:
+      summary: Verify email address
+      description: |
+        Verify an email address using the verification token sent to the email.
+        This must be done before the account can be used.
+      operationId: verifyEmail
+      tags:
+        - Accounts
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - tenantId
+                - email
+                - token
+              properties:
+                tenantId:
+                  type: string
+                  description: Tenant identifier
+                  example: default
+                email:
+                  type: string
+                  format: email
+                  description: Email address to verify
+                  example: user@example.com
+                token:
+                  type: string
+                  description: Verification token from email
+                  example: abc123def456
+      responses:
+        '204':
+          description: Email verified successfully
+        '400':
+          description: Invalid token or verification failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Account not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+  /api/accounts/resend:
+    post:
+      summary: Resend verification email
+      description: |
+        Resend the verification email to the user's email address.
+
+        Rate limited: Yes
+      operationId: resendVerificationEmail
+      tags:
+        - Accounts
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - tenantId
+                - email
+              properties:
+                tenantId:
+                  type: string
+                  description: Tenant identifier
+                  example: default
+                email:
+                  type: string
+                  format: email
+                  description: Email address to send verification to
+                  example: user@example.com
+      responses:
+        '204':
+          description: Verification email sent successfully
+        '400':
+          description: Invalid request or already verified
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Account not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+  /api/accounts/forgot:
+    post:
+      summary: Request password reset
+      description: |
+        Request a password reset token for a forgotten password.
+        A reset link will be sent to the user's email address.
+
+        Rate limited: Yes
+      operationId: requestPasswordReset
+      tags:
+        - Accounts
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - tenantId
+                - email
+              properties:
+                tenantId:
+                  type: string
+                  description: Tenant identifier
+                  example: default
+                email:
+                  type: string
+                  format: email
+                  description: Email address to send reset token to
+                  example: user@example.com
+      responses:
+        '204':
+          description: Reset email sent successfully
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+  /api/accounts/reset:
+    put:
+      summary: Reset password
+      description: |
+        Reset the user's password using the reset token received via email.
+      operationId: resetPassword
+      tags:
+        - Accounts
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - tenantId
+                - email
+                - token
+                - password
+              properties:
+                tenantId:
+                  type: string
+                  description: Tenant identifier
+                  example: default
+                email:
+                  type: string
+                  format: email
+                  description: User email address
+                  example: user@example.com
+                token:
+                  type: string
+                  description: Password reset token from email
+                  example: abc123def456
+                password:
+                  type: string
+                  format: password
+                  description: New password
+                  example: NewSecurePassword456!
+      responses:
+        '204':
+          description: Password reset successfully
+        '400':
+          description: Invalid token or password
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+  /api/accounts/password:
+    put:
+      summary: Change password
+      description: |
+        Change the user's password. Requires a valid access token.
+      operationId: changePassword
+      tags:
+        - Accounts
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - tenantId
+                - email
+                - newPassword
+                - accessToken
+              properties:
+                tenantId:
+                  type: string
+                  description: Tenant identifier
+                  example: default
+                email:
+                  type: string
+                  format: email
+                  description: User email address
+                  example: user@example.com
+                newPassword:
+                  type: string
+                  format: password
+                  description: New password
+                  example: NewSecurePassword456!
+                accessToken:
+                  type: string
+                  description: Valid access token (JWT)
+                  example: eyJhbGciOiJSUzI1NiIs...
+      responses:
+        '204':
+          description: Password changed successfully
+        '400':
+          description: Invalid token or password
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+  /api/accounts/email:
+    put:
+      summary: Update email address
+      description: |
+        Change the user's email address. Requires a valid access token.
+      operationId: updateEmail
+      tags:
+        - Accounts
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - tenantId
+                - email
+                - accessToken
+              properties:
+                tenantId:
+                  type: string
+                  description: Tenant identifier
+                  example: default
+                email:
+                  type: string
+                  format: email
+                  description: New email address
+                  example: newemail@example.com
+                accessToken:
+                  type: string
+                  description: Valid access token (JWT)
+                  example: eyJhbGciOiJSUzI1NiIs...
+      responses:
+        '204':
+          description: Email updated successfully
+        '400':
+          description: Invalid token or email
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+  /api/accounts/delete:
+    put:
+      summary: Delete account
+      description: |
+        Delete the user's account. Requires a valid access token.
+      operationId: deleteAccount
+      tags:
+        - Accounts
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - tenantId
+                - email
+                - accessToken
+              properties:
+                tenantId:
+                  type: string
+                  description: Tenant identifier
+                  example: default
+                email:
+                  type: string
+                  format: email
+                  description: User email address
+                  example: user@example.com
+                accessToken:
+                  type: string
+                  description: Valid access token (JWT)
+                  example: eyJhbGciOiJSUzI1NiIs...
+      responses:
+        '204':
+          description: Account deleted successfully
+        '400':
+          description: Invalid token or request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+  /api/authenticate:
+    post:
+      summary: Authenticate with password
+      description: |
+        Authenticate a user with email and password.
+        Returns access and refresh tokens on success.
+
+        Rate limited: Yes
+        Subject to account lockout after max failed attempts (default: 5)
+      operationId: authenticatePassword
+      tags:
+        - Authentication
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - tenantId
+                - email
+                - password
+                - clientId
+              properties:
+                tenantId:
+                  type: string
+                  description: Tenant identifier
+                  example: default
+                email:
+                  type: string
+                  format: email
+                  description: User email address
+                  example: user@example.com
+                password:
+                  type: string
+                  format: password
+                  description: User password
+                  example: SecurePassword123!
+                clientId:
+                  type: string
+                  description: Client identifier for multi-device support
+                  example: mobile-app-device-1
+      responses:
+        '200':
+          description: Authentication successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthenticationResponse'
+        '400':
+          description: Authentication failed or account locked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+  /api/authenticate/ack:
+    post:
+      summary: Acknowledge tokens
+      description: |
+        Acknowledge/store tokens for the client.
+        This must be called before using the access token for operations like validation.
+        Enables multi-device support by storing tokens per client ID.
+      operationId: acknowledgeTokens
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - tenantId
+                - accessToken
+                - refreshToken
+              properties:
+                tenantId:
+                  type: string
+                  description: Tenant identifier
+                  example: default
+                accessToken:
+                  type: string
+                  description: Access token (JWT)
+                  example: eyJhbGciOiJSUzI1NiIs...
+                refreshToken:
+                  type: string
+                  description: Refresh token (JWT)
+                  example: eyJhbGciOiJSUzI1NiIs...
+      responses:
+        '201':
+          description: Tokens acknowledged successfully
+        '400':
+          description: Invalid tokens
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+  /api/authenticate/renew:
+    post:
+      summary: Renew tokens
+      description: |
+        Renew access and refresh tokens using a valid refresh token.
+
+        Rate limited: Yes
+      operationId: renewTokens
+      tags:
+        - Authentication
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - tenantId
+                - email
+                - refreshToken
+              properties:
+                tenantId:
+                  type: string
+                  description: Tenant identifier
+                  example: default
+                email:
+                  type: string
+                  format: email
+                  description: User email address
+                  example: user@example.com
+                refreshToken:
+                  type: string
+                  description: Refresh token (JWT)
+                  example: eyJhbGciOiJSUzI1NiIs...
+      responses:
+        '200':
+          description: Tokens renewed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthenticationResponse'
+        '400':
+          description: Invalid refresh token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+  /api/authenticate/revoke:
+    delete:
+      summary: Revoke tokens
+      description: |
+        Revoke/delete tokens for a specific client.
+      operationId: revokeTokens
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - tenantId
+                - email
+                - clientId
+                - accessToken
+              properties:
+                tenantId:
+                  type: string
+                  description: Tenant identifier
+                  example: default
+                email:
+                  type: string
+                  format: email
+                  description: User email address
+                  example: user@example.com
+                clientId:
+                  type: string
+                  description: Client identifier
+                  example: mobile-app-device-1
+                accessToken:
+                  type: string
+                  description: Access token (JWT)
+                  example: eyJhbGciOiJSUzI1NiIs...
+      responses:
+        '200':
+          description: Tokens revoked successfully
+        '400':
+          description: Invalid request or token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+  /api/authenticate/token/validate:
+    post:
+      summary: Validate access token
+      description: |
+        Validate an access token and return its claims.
+        Token must be acknowledged first using /authenticate/ack endpoint.
+      operationId: validateToken
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - tenantId
+                - token
+              properties:
+                tenantId:
+                  type: string
+                  description: Tenant identifier
+                  example: default
+                token:
+                  type: string
+                  description: Access token to validate (JWT)
+                  example: eyJhbGciOiJSUzI1NiIs...
+      responses:
+        '200':
+          description: Token is valid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenClaims'
+        '400':
+          description: Invalid token or token not acknowledged
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+  /api/authenticate/logon/request:
+    post:
+      summary: Request magic link code
+      description: |
+        Request a magic link authentication code (6-digit code).
+        The code will be sent to the user's email address.
+
+        Rate limited: Yes
+      operationId: requestMagicLink
+      tags:
+        - Magic Link
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - tenantId
+                - email
+              properties:
+                tenantId:
+                  type: string
+                  description: Tenant identifier
+                  example: default
+                email:
+                  type: string
+                  format: email
+                  description: Email address to send code to
+                  example: user@example.com
+      responses:
+        '200':
+          description: Magic link code sent to email
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+  /api/authenticate/code:
+    post:
+      summary: Authenticate with magic link code
+      description: |
+        Authenticate using a 6-digit magic link code received via email.
+
+        Rate limited: Yes
+        Subject to account lockout after max failed attempts (default: 5)
+      operationId: authenticateWithCode
+      tags:
+        - Magic Link
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - tenantId
+                - email
+                - code
+                - clientId
+              properties:
+                tenantId:
+                  type: string
+                  description: Tenant identifier
+                  example: default
+                email:
+                  type: string
+                  format: email
+                  description: User email address
+                  example: user@example.com
+                code:
+                  type: string
+                  description: 6-digit magic link code
+                  example: '123456'
+                clientId:
+                  type: string
+                  description: Client identifier for multi-device support
+                  example: mobile-app-device-1
+      responses:
+        '200':
+          description: Authentication successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthenticationResponse'
+        '400':
+          description: Authentication failed or account locked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+  /api/authenticate/social:
+    post:
+      summary: Authenticate with social provider
+      description: |
+        Authenticate using a social provider (e.g., Google).
+        Automatically creates an account if the user doesn't exist.
+      operationId: authenticateSocial
+      tags:
+        - Social
+      parameters:
+        - name: tenantId
+          in: query
+          description: Tenant identifier
+          schema:
+            type: string
+          example: default
+        - name: id
+          in: query
+          description: User ID from social provider
+          schema:
+            type: string
+          example: google-user-id-12345
+        - name: provider
+          in: query
+          description: Social provider name
+          schema:
+            type: string
+            enum:
+              - google
+          example: google
+        - name: clientId
+          in: query
+          description: Client identifier for multi-device support
+          schema:
+            type: string
+          example: mobile-app-device-1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                tenantId:
+                  type: string
+                  description: Tenant identifier (alternative to query param)
+                  example: default
+                id:
+                  type: string
+                  description: User ID from social provider (alternative to query param)
+                  example: google-user-id-12345
+                provider:
+                  type: string
+                  description: Social provider name (alternative to query param)
+                  example: google
+                clientId:
+                  type: string
+                  description: Client identifier (alternative to query param)
+                  example: mobile-app-device-1
+      responses:
+        '200':
+          description: Authentication successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthenticationResponse'
+        '400':
+          description: Invalid provider or missing parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+components:
+  schemas:
+    AuthenticationResponse:
+      type: object
+      required:
+        - accessToken
+        - refreshToken
+      properties:
+        accessToken:
+          type: string
+          description: JWT access token (RS256 signed)
+          example: eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlcyI6WyJ1c2VyIl0sImlzcyI6ImJ1bHdhcmthdXRoIiwic3ViIjoidXNlckBlbWFpbC5jb20iLCJhdWQiOiJidWx3YXJrYXV0aCIsImV4cCI6MTcwMDAwMDAwMCwibmJmIjoxNjk5OTk2NDAwLCJpYXQiOjE2OTk5OTY0MDAsImp0aSI6InRva2VuLWlkIiwiY2xpZW50SWQiOiJkZXZpY2UtMSIsInRlbmFudElkIjoiZGVmYXVsdCJ9.signature
+          format: jwt
+        refreshToken:
+          type: string
+          description: JWT refresh token (RS256 signed)
+          example: eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJidWx3YXJrYXV0aCIsInN1YiI6InVzZXJAZW1haWwuY29tIiwiYXVkIjoiYnVsd2Fya2F1dGgiLCJleHAiOjE3MDAyMDAwMDAsIm5iZiI6MTY5OTk5NjQwMCwiaWF0IjoxNjk5OTk2NDAwLCJqdGkiOiJyZWZyZXNoLXRva2VuLWlkIiwiY2xpZW50SWQiOiJkZXZpY2UtMSIsInRlbmFudElkIjoiZGVmYXVsdCJ9.signature
+          format: jwt
+
+    TokenClaims:
+      type: object
+      required:
+        - issuer
+        - subject
+        - audience
+        - expiresAT
+        - notBefore
+        - issuedAt
+        - Id
+        - tenantId
+      properties:
+        roles:
+          type: array
+          items:
+            type: string
+          description: User roles for RBAC
+          example:
+            - user
+            - admin
+        issuer:
+          type: string
+          description: Token issuer
+          example: bulwarkauth
+        subject:
+          type: string
+          format: email
+          description: User email (token subject)
+          example: user@example.com
+        audience:
+          type: string
+          description: Token audience
+          example: bulwarkauth
+        expiresAT:
+          type: string
+          format: date-time
+          description: Token expiration time
+          example: '2026-01-19T13:34:56Z'
+        notBefore:
+          type: string
+          format: date-time
+          description: Token not valid before
+          example: '2026-01-19T10:34:56Z'
+        issuedAt:
+          type: string
+          format: date-time
+          description: Token issued at
+          example: '2026-01-19T10:34:56Z'
+        Id:
+          type: string
+          description: Token ID (jti claim)
+          example: token-id-abc123
+        clientId:
+          type: string
+          description: Client identifier
+          example: mobile-app-device-1
+        tenantId:
+          type: string
+          description: Tenant identifier
+          example: default
+
+    ProblemDetails:
+      type: object
+      required:
+        - type
+        - title
+        - status
+      properties:
+        type:
+          type: string
+          description: RFC 7807 problem type URI
+          example: https://latebit.io/bulwark/errors/invalid-credentials
+        title:
+          type: string
+          description: Short error description
+          example: Invalid Credentials
+        status:
+          type: integer
+          description: HTTP status code
+          example: 400
+        detail:
+          type: string
+          description: Detailed error message
+          example: The provided email or password is incorrect
+        instance:
+          type: string
+          description: Problem instance identifier
+          example: /api/authenticate
+
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-BULWARK-API-KEY
+      description: |
+        API key for endpoint protection. Set `API_KEY_ENABLED=true` and `API_KEY` environment variables to enable.
+        Applied to: Account creation, Resend verification, Forgot password, Password authentication, Code authentication, Magic link request.
