@@ -130,6 +130,10 @@ func main() {
 	socialService.AddValidator(google)
 	socialHandlers := authenticationapi.NewSocialHandlers(socialService)
 	authenticationapi.SocialRoutes(service, socialHandlers)
+	apiKeyRepo := authentication.NewMongoDbApiRepository(mongodb)
+	apiKeyService := authentication.NewDefaultApiKeyService(apiKeyRepo, encrypt, tokenizer, accountsRepo)
+	apiKeyHandlers := authenticationapi.NewApiKeyHandlers(apiKeyService)
+	authenticationapi.ApiKeyRoutes(service, apiKeyHandlers, ratelimiter)
 
 	corsSetting(service, config, logger)
 	apiKeySetting(service, config, logger)
