@@ -44,6 +44,7 @@ type Verification struct {
 }
 
 type Account struct {
+	ID                string           `bson:"id" json:"-"`
 	TenantID          string           `bson:"tenantId" json:"tenantId"`
 	Email             string           `bson:"email"`
 	IsVerified        bool             `bson:"isVerified"`
