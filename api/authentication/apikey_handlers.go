@@ -27,6 +27,9 @@ func (r CreateApiKeyRequest) Validate() error {
 	if r.Name == "" {
 		return errors.New("name required")
 	}
+	if r.Expires != nil && r.Expires.Before(time.Now().UTC()) {
+		return errors.New("expires must be in the future")
+	}
 	return nil
 }
 

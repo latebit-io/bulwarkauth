@@ -36,14 +36,6 @@ type ApiKey struct {
 	Modified  time.Time  `json:"modified" bson:"modified"`
 }
 
-type ApiKeyCreated struct {
-	ApiKey    string     `json:"apiKey"`
-	Name      string     `json:"name"`
-	KeyPrefix string     `json:"keyPrefix"`
-	Expires   *time.Time `json:"expires"`
-	Created   time.Time  `json:"created"`
-}
-
 type ApiRepository interface {
 	Create(ctx context.Context, apiKey *ApiKey) error
 	Read(ctx context.Context, tenantID, accountID, keyPrefix string) (*ApiKey, error)
@@ -151,16 +143,16 @@ func NewDefaultApiKeyService(repo ApiRepository, encryption Encryption, tokenize
 func (s *DefaultApiKeyService) Authenticate(ctx context.Context, tenantID, email, apiKey string) (*Authenticated, error) {
 	splitKey := strings.Split(apiKey, "_")
 	if len(splitKey) != 3 {
-		return nil, ApiKeyInvalidError{Value: apiKey}
+		return nil, ApiKeyInvalidError{Value: email}
 	}
 
-	accountID, err := s.resolveAccountID(ctx, tenantID, email)
+	account, err := s.accountRepo.Read(ctx, tenantID, email)
 	if err != nil {
 		return nil, err
 	}
 
 	keyPrefix := fmt.Sprintf("%s_%s", splitKey[0], splitKey[1])
-	apiKeyResult, err := s.apiRepo.Read(ctx, tenantID, accountID, keyPrefix)
+	apiKeyResult, err := s.apiRepo.Read(ctx, tenantID, account.ID, keyPrefix)
 	if err != nil {
 		return nil, err
 	}
@@ -178,12 +170,7 @@ func (s *DefaultApiKeyService) Authenticate(ctx context.Context, tenantID, email
 		return nil, err
 	}
 	if !verified {
-		return nil, ApiKeyInvalidError{Value: apiKey}
-	}
-
-	account, err := s.accountRepo.Read(ctx, tenantID, email)
-	if err != nil {
-		return nil, err
+		return nil, ApiKeyInvalidError{Value: email}
 	}
 
 	accessToken, err := s.tokenizer.CreateAccessToken(ctx, tenantID, email, "apikey", account.Roles)

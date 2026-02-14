@@ -15,7 +15,7 @@ type ApiKeyInvalidError struct {
 }
 
 func (e ApiKeyInvalidError) Error() string {
-	return fmt.Sprintf("api key not valid: %s", e.Value)
+	return fmt.Sprintf("api key invalid: %s", e.Value)
 }
 
 type ApiKeyDisabledError struct {
@@ -23,7 +23,7 @@ type ApiKeyDisabledError struct {
 }
 
 func (e ApiKeyDisabledError) Error() string {
-	return fmt.Sprintf("api key disabled: %s", e.Value)
+	return fmt.Sprintf("api key is disabled: %s", e.Value)
 }
 
 type ApiKeyExpiredError struct {
@@ -31,5 +31,5 @@ type ApiKeyExpiredError struct {
 }
 
 func (e ApiKeyExpiredError) Error() string {
-	return fmt.Sprintf("api key expired: %s", e.Value)
+	return fmt.Sprintf("api key is expired: %s", e.Value)
 }

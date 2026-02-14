@@ -1,9 +1,9 @@
 package encryption
 
 import (
+	"crypto/rand"
 	"errors"
-	"math/rand"
-	"time"
+	"math/big"
 
 	"golang.org/x/crypto/bcrypt"
 )
@@ -51,13 +51,16 @@ func (d DefaultEncryption) Verify(password, verifyPassword string) (bool, error)
 
 const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
-var seededRand *rand.Rand = rand.New(rand.NewSource(time.Now().UnixNano()))
-
-// GenerateRandomString generates a random string of the specified length
+// GenerateRandomString generates a cryptographically random string of the specified length.
 func GenerateRandomString(length int) string {
 	b := make([]byte, length)
+	max := big.NewInt(int64(len(charset)))
 	for i := range b {
-		b[i] = charset[seededRand.Intn(len(charset))]
+		n, err := rand.Int(rand.Reader, max)
+		if err != nil {
+			panic(err)
+		}
+		b[i] = charset[n.Int64()]
 	}
 	return string(b)
 }
